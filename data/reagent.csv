@@ -157,7 +157,7 @@ box,matrix,name,company (Cat#),concentration,date,manager,비고,merged_to
 "NK_culture_supplement","G-8","hIL-2","","1mg/mL","2022-09-08","","",""
 "NK_culture_supplement","H-8","","","","","","",""
 "NK_culture_supplement","I-8","","","","","","",""
-"NK_culture_supplement","A-9","","","","","","",""
+"NK_culture_supplement","A-9","hIL-2","","200ng/ul","","","",""
 "NK_culture_supplement","B-9","","","","","","","A-9"
 "NK_culture_supplement","C-9","","","","","","","A-9"
 "NK_culture_supplement","D-9","","","","","","","A-9"
