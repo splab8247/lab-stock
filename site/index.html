@@ -38,9 +38,6 @@ main{padding:20px;overflow:auto;min-width:0}
 .stat.occ{position:relative;overflow:hidden;min-width:120px}
 .stat.occ>b,.stat.occ>span{position:relative;z-index:1}
 .stat.occ .lv{position:absolute;left:0;right:0;bottom:0;height:0;opacity:.35;transition:height 1.1s cubic-bezier(.2,.8,.2,1),background .4s}
-.stat.occ .wave{position:absolute;left:-50%;top:-6px;width:200%;height:12px;background:inherit;border-radius:45%;animation:wave 3.2s linear infinite;opacity:.9}
-@keyframes wave{from{transform:translateX(0) rotate(0)}to{transform:translateX(25%) rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.stat.occ .lv{transition:none}.stat.occ .wave{animation:none}}.stat span{font-size:11px;color:var(--mute)}.stat.hl{border-color:var(--hit)}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:20px}
 .box h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .box h2 small{color:var(--mute);font-weight:400;font-size:12px}
@@ -207,7 +204,7 @@ function boxHTML(b){const c=counts([b]);
  return h+'</div></div>'}
 // occupancy card: a liquid level that rises to the % (green -> amber -> red as the freezer fills)
 let lastOcc=0;
-const occHTML=p=>`<div class="stat occ" data-p="${p}" title="채워진 칸 비율"><i class="lv" style="height:${lastOcc}%;background:${occColor(p)}"><i class="wave"></i></i><b>${p}%</b><span>Occupancy</span></div>`;
+const occHTML=p=>`<div class="stat occ" data-p="${p}" title="채워진 칸 비율"><i class="lv" style="height:${lastOcc}%;background:${occColor(p)}"></i><b>${p}%</b><span>Occupancy</span></div>`;
 const occColor=p=>p<60?'var(--occ-lo)':p<85?'var(--occ-mid)':'var(--occ-hi)';
 function fillOcc(){const el=main.querySelector('.stat.occ');if(!el)return;const p=+el.dataset.p;
  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.querySelector('.lv').style.height=p+'%';lastOcc=p}))}
