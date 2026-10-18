@@ -50,7 +50,7 @@ main{padding:20px;overflow:auto;min-width:0}
 .slot .c{font-size:10px}.slot .s{display:flex;flex-direction:column;line-height:1.2}.slot .mg2{font-weight:600;color:var(--ink);opacity:.75}
 .slot.mg{justify-content:center;align-items:center;text-align:center;font-size:12px}.slot.mg .s{margin-top:0}
 .grid.ed{user-select:none}
-.ana{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:14px;margin-bottom:20px}
+.ana{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:20px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
 .ch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:14px}
 .ch select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px;max-width:220px}
@@ -63,12 +63,6 @@ main{padding:20px;overflow:auto;min-width:0}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 8px 12px}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer}.chip:hover{border-color:var(--acc);color:var(--acc)}
 .more{margin-top:6px;border:0;background:none;color:var(--acc);cursor:pointer;font-size:12px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.seg button{border:0;background:var(--panel);color:var(--mute);padding:4px 10px;font-size:12px;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
-.bp{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:10px}
-.svg{width:100%;height:auto;display:block}.svg .gl{stroke:var(--line)}.svg .tk{fill:var(--mute);font-size:10px}.svg .wk{stroke:var(--mute)}.svg .pt{fill:var(--ink);opacity:.55}
-.na{border-left:1px dashed var(--line);padding-left:10px;max-height:240px;overflow:auto;font-size:11px}
-.nh{color:var(--mute);margin-bottom:6px}
-.nai{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:3px 0;cursor:pointer;font-size:11px}.nai:hover{color:var(--acc)}.nai span{display:block;color:var(--mute);font-size:10px}
 @media(max-width:1000px){.ana{grid-template-columns:1fr}}
 .slot.sel{outline:2px dashed var(--acc);outline-offset:-2px;filter:brightness(.92)}
 #mbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,150%);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #0003;padding:10px 12px 10px 16px;display:flex;gap:10px;align-items:center;transition:transform .2s;z-index:6;font-size:14px}
@@ -81,8 +75,7 @@ tr[data-id]{cursor:pointer}tr[data-id]:hover td{background:var(--bg)}tr.dim{opac
 #det.open{transform:none}
 #det h3{margin:4px 0 2px;font-size:18px}#det .pos{font-size:12px;color:var(--mute)}
 #det dl{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;margin:16px 0 0;font-size:13px;align-items:center}
-#det dt{color:var(--mute)}#det dd{margin:0;word-break:break-word}#det dd.na{color:var(--mute)}
-#det input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+#det dt{color:var(--mute)}#det dd{margin:0;word-break:break-word}#det dd#det input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
 #det .acts{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 #det .x{float:right;cursor:pointer;border:0;background:none;color:var(--mute);font-size:20px}
 .msg{margin-top:12px;font-size:13px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
@@ -331,68 +324,32 @@ $('mbar').addEventListener('click',async e=>{if(!pending)return;if(e.target.id==
   if(nv.join('\u0001')!==s.vals.join('\u0001'))ch.set(keyOf(s.box,s.pos),nv)});
  const ok=await saveRows(sh,ch,`${b.name} ${rectTxt(b,R)} 병합`,keyOf(b.name,anchorPos));if(ok)hideBar()});
 
-// ---------- analytics: item counts (bar) + value by date (box plot) ----------
-const METRIC={celline:'cell number',bacteria:'concentration (ng/µl)',reagent:'concentration',siRNA:'concentration'};
-const ana={sheet:'celline',item:null,open:null,by:'year',showAll:false};
-// "3 x 10^6 cells" -> {v:3e6,u:'cells'}, "354.8mM" -> {v:354.8,u:'mM'}, "405" (ng/µl col) -> {v:405,u:'ng/µl'}
-function parseVal(raw,col){const t=String(raw||'').trim();if(!t)return null;let m;
- if(m=/^([\d.]+)\s*x\s*10\^(\d+)\s*(.*)$/i.exec(t))return{v:+m[1]*10**+m[2],u:m[3].trim()||'cells'};
- if(m=/^([\d.]+)\s*([^\d\s].*)?$/.exec(t))return{v:+m[1],u:(m[2]||'').trim()||(col.includes('ng/')?'ng/µl':'')};return null}
-const fmtV=v=>v>=1e4?v.toExponential(1).replace('e+',' x 10^'):(+v.toPrecision(4)).toString();
+// ---------- analytics: counts per item / per manager (bar charts) ----------
+const ana={sheet:'celline',open:{item:null,mgr:null},all:{item:false,mgr:false}};
 function anaSheet(){return view.t==='all'?SHEETS.find(s=>s.key===ana.sheet):SHEETS.find(s=>s.key===view.g)}
 function anaSlots(sh){const bs=view.t==='box'?scope():sh.boxes;return bs.flatMap(b=>b.slots).filter(s=>s.filled)}
-const itemOf=s=>s.prim.trim();
-function renderAna(){const el=$('ana');if(!el)return;const sh=anaSheet(),slots=anaSlots(sh);
- // ---- left: counts per item
- const cntMap=new Map();slots.forEach(s=>{const k=itemOf(s);if(!cntMap.has(k))cntMap.set(k,[]);cntMap.get(k).push(s)});
- const items=[...cntMap.entries()].sort((a,b)=>b[1].length-a[1].length);
- if(!ana.item||!cntMap.has(ana.item))ana.item=items[0]?.[0]||null;
- const top=ana.showAll?items:items.slice(0,15),mx=items[0]?.[1].length||1;
- const sheetSel=view.t==='all'?`<select id="a_sheet">${SHEETS.map(s=>`<option value="${s.key}"${s.key===sh.key?' selected':''}>${s.label}</option>`).join('')}</select>`:`<span class="tag">${sh.label}</span>`;
- let L=`<div class="card"><div class="ch"><b>${sh.p} 별 개수</b>${sheetSel}<span class="mute">${items.length}종 · ${slots.length}칸</span></div><div class="bars">`;
- top.forEach(([k,arr])=>{const on=ana.open===k;
-  L+=`<div class="bar${on?' on':''}${ana.item===k?' cur':''}" data-item="${esc(k)}"><span class="bl" title="${esc(k)}">${esc(k)}</span><span class="bt"><i style="width:${arr.length/mx*100}%;background:var(${sh.k})"></i></span><span class="bn">${arr.length}</span></div>`;
+const NOMGR='(미기재)';
+function barCard(kind,title,extra,sh,slots,keyOf){
+ const m=new Map();slots.forEach(s=>{const k=keyOf(s);if(!m.has(k))m.set(k,[]);m.get(k).push(s)});
+ const items=[...m.entries()].sort((a,b)=>b[1].length-a[1].length),mx=items[0]?.[1].length||1;
+ const top=ana.all[kind]?items:items.slice(0,15);
+ let h=`<div class="card"><div class="ch"><b>${title}</b>${extra}<span class="mute">${items.length}${kind==='mgr'?'명':'종'} · ${slots.length}칸</span></div><div class="bars">`;
+ top.forEach(([k,arr])=>{const on=ana.open[kind]===k;
+  h+=`<div class="bar${on?' on':''}" data-kind="${kind}" data-key="${esc(k)}"><span class="bl" title="${esc(k)}">${esc(k)}</span><span class="bt"><i style="width:${arr.length/mx*100}%;background:var(${sh.k})"></i></span><span class="bn">${arr.length}</span></div>`;
   if(on){const per=new Map();arr.forEach(s=>per.set(s.box,(per.get(s.box)||0)+1));
-   L+=`<div class="chips">${[...per.entries()].map(([bx,n])=>`<button class="chip" data-go="${sh.key}|${esc(bx)}" data-term="${esc(k)}">${esc(bx)} <b>${n}</b> →</button>`).join('')}</div>`}});
- if(items.length>15)L+=`<button class="more" id="a_more">${ana.showAll?'접기':`나머지 ${items.length-15}종 더 보기`}</button>`;
- if(!items.length)L+='<div class="mute" style="padding:20px">데이터 없음</div>';
- L+='</div></div>';
- // ---- right: box plot of metric by date for the selected item
- const col=METRIC[sh.key],ci=sh.cols.indexOf(col);
- const arr=(cntMap.get(ana.item)||[]).map(s=>({s,val:parseVal(s.vals[ci],col),d:s.date}));
- const units=new Map();arr.forEach(x=>x.val&&units.set(x.val.u,(units.get(x.val.u)||0)+1));
- const unit=[...units.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
- const ok=[],na=[];arr.forEach(x=>{const why=!x.val?`${col} 없음`:x.val.u!==unit?`단위 다름(${x.val.u||'-'})`:!x.d?'날짜 없음':'';why?na.push({...x,why}):ok.push(x)});
- const key=x=>ana.by==='year'?x.d.slice(0,4):x.d;
- const groups=new Map();ok.sort((a,b)=>a.d.localeCompare(b.d)).forEach(x=>{const k=key(x);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(x)});
- let R=`<div class="card"><div class="ch"><b>날짜별 ${esc(col)}</b><select id="a_item">${items.map(([k])=>`<option${k===ana.item?' selected':''}>${esc(k)}</option>`).join('')}</select>
-  <span class="seg"><button data-by="year" class="${ana.by==='year'?'on':''}">연도</button><button data-by="date" class="${ana.by==='date'?'on':''}">날짜</button></span></div>
-  <div class="bp"><div class="plot">${boxPlot([...groups.entries()],unit,sh)}</div>
-  <div class="na"><div class="nh">NA <b>${na.length}</b></div>${na.length?na.map(x=>`<button class="nai" data-go="${sh.key}|${esc(x.s.box)}" data-term="${esc(ana.item)}" title="${esc(x.s.raw)}">${esc(x.s.box)} ${x.s.pos}<span>${esc(x.why)}</span></button>`).join(''):'<div class="mute">없음</div>'}</div></div></div>`;
- el.innerHTML=L+R}
-function boxPlot(groups,unit,sh){if(!groups.length)return'<div class="mute" style="padding:40px;text-align:center">표시할 값이 없습니다</div>';
- const W=560,H=240,pl=64,pr=12,pt=14,pb=46,vals=groups.flatMap(([,a])=>a.map(x=>x.val.v));
- let lo=Math.min(...vals),hi=Math.max(...vals);const log=lo>0&&hi/lo>=100;
- const f=log?Math.log10:(v=>v);let a=f(lo),b=f(hi);if(a===b){a-=log?.5:Math.abs(a)*.1||1;b+=log?.5:Math.abs(b)*.1||1}const pad=(b-a)*.08;a-=pad;b+=pad;
- const y=v=>pt+(H-pt-pb)*(1-(f(v)-a)/(b-a)),bw=Math.min(36,(W-pl-pr)/groups.length*.55),xc=i=>pl+(W-pl-pr)*(i+.5)/groups.length;
- const q=(s,p)=>{const i=(s.length-1)*p,l=Math.floor(i);return s[l]+(s[Math.ceil(i)]-s[l])*(i-l)};
- let g=`<svg viewBox="0 0 ${W} ${H}" class="svg">`;
- // y ticks
- const ticks=log?Array.from({length:Math.floor(b)-Math.ceil(a)+1},(_,i)=>10**(Math.ceil(a)+i)):Array.from({length:5},(_,i)=>a+(b-a)*i/4);
- ticks.forEach(t=>{const v=log?t:t;const yy=log?y(t):pt+(H-pt-pb)*(1-(t-a)/(b-a));g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" class="gl"/><text x="${pl-6}" y="${yy+3}" text-anchor="end" class="tk">${fmtV(v)}</text>`});
- g+=`<text x="12" y="${pt+(H-pt-pb)/2}" class="tk" transform="rotate(-90 12 ${pt+(H-pt-pb)/2})" text-anchor="middle">${esc(unit||'')}${log?' (log)':''}</text>`;
- groups.forEach(([k,arr],i)=>{const s=arr.map(x=>x.val.v).sort((m,n)=>m-n),x=xc(i);const [mn,q1,md,q3,mx]=[s[0],q(s,.25),q(s,.5),q(s,.75),s[s.length-1]];
-  g+=`<line x1="${x}" x2="${x}" y1="${y(mn)}" y2="${y(mx)}" class="wk"/><line x1="${x-bw/4}" x2="${x+bw/4}" y1="${y(mn)}" y2="${y(mn)}" class="wk"/><line x1="${x-bw/4}" x2="${x+bw/4}" y1="${y(mx)}" y2="${y(mx)}" class="wk"/>`;
-  g+=`<rect x="${x-bw/2}" y="${y(q3)}" width="${bw}" height="${Math.max(1,y(q1)-y(q3))}" rx="3" style="fill:var(${sh.c});stroke:var(${sh.k})"/><line x1="${x-bw/2}" x2="${x+bw/2}" y1="${y(md)}" y2="${y(md)}" style="stroke:var(${sh.k});stroke-width:2"/>`;
-  arr.forEach((p,j)=>{const jx=x+((j*37)%11-5)*bw/14;g+=`<circle cx="${jx}" cy="${y(p.val.v)}" r="2.6" class="pt"><title>${esc(p.s.box)} ${p.s.pos} · ${esc(p.s.vals[p.s.sh.cols.indexOf(METRIC[p.s.sh.key])])} · ${p.d}</title></circle>`});
-  g+=`<text x="${x}" y="${H-pb+14}" text-anchor="${groups.length>8?'end':'middle'}" class="tk"${groups.length>8?` transform="rotate(-35 ${x} ${H-pb+14})"`:''}>${esc(k)}</text><text x="${x}" y="${pt-3}" text-anchor="middle" class="tk">n=${arr.length}</text>`});
- return g+'</svg>'}
+   h+=`<div class="chips">${[...per.entries()].map(([bx,n])=>`<button class="chip" data-go="${sh.key}|${esc(bx)}" data-term="${k===NOMGR?'':esc(k)}">${esc(bx)} <b>${n}</b> →</button>`).join('')}</div>`}});
+ if(items.length>15)h+=`<button class="more" data-more="${kind}">${ana.all[kind]?'접기':`나머지 ${items.length-15}개 더 보기`}</button>`;
+ if(!items.length)h+='<div class="mute" style="padding:20px">데이터 없음</div>';
+ return h+'</div></div>'}
+function renderAna(){const el=$('ana');if(!el)return;const sh=anaSheet(),slots=anaSlots(sh);
+ const sel=view.t==='all'?`<select id="a_sheet">${SHEETS.map(s=>`<option value="${s.key}"${s.key===sh.key?' selected':''}>${s.label}</option>`).join('')}</select>`:`<span class="tag">${sh.label}</span>`;
+ el.innerHTML=barCard('item',`${esc(sh.p)} 별 개수`,sel,sh,slots,s=>s.prim.trim())
+  +barCard('mgr','관리자별 개수','',sh,slots,s=>s.mgr.trim()||NOMGR)}
 main.addEventListener('click',e=>{const t=e.target;
- const bar=t.closest('.bar[data-item]');if(bar){const k=bar.dataset.item;ana.open=ana.open===k?null:k;ana.item=k;renderAna();return}
+ const bar=t.closest('.bar[data-kind]');if(bar){const k=bar.dataset.kind,key=bar.dataset.key;ana.open[k]=ana.open[k]===key?null:key;renderAna();return}
  const go=t.closest('[data-go]');if(go){const [k,bx]=go.dataset.go.split('|');view={t:'box',g:k,b:bx};term=go.dataset.term.toLowerCase();$('q').value=go.dataset.term;render();window.scrollTo({top:0,behavior:'smooth'});main.scrollTop=0;return}
- if(t.id==='a_more'){ana.showAll=!ana.showAll;renderAna();return}
- const by=t.closest('[data-by]');if(by){ana.by=by.dataset.by;renderAna()}});
-main.addEventListener('change',e=>{if(e.target.id==='a_sheet'){ana.sheet=e.target.value;ana.item=null;ana.open=null;renderAna()}else if(e.target.id==='a_item'){ana.item=e.target.value;renderAna()}});
+ const more=t.closest('[data-more]');if(more){ana.all[more.dataset.more]=!ana.all[more.dataset.more];renderAna()}});
+main.addEventListener('change',e=>{if(e.target.id==='a_sheet'){ana.sheet=e.target.value;ana.open={item:null,mgr:null};renderAna()}});
 
 // ---------- settings dialog ----------
 const setd=$('setd');
