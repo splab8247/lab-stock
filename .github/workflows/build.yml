@@ -23,6 +23,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for history.json
 
       - uses: actions/setup-python@v5
         with:
@@ -44,10 +46,14 @@ jobs:
             git push
           fi
 
+      - name: Build history.json (recent site edits)
+        run: python scripts/build_history.py
+
       - name: Assemble site
         run: |
           mkdir -p _site/data
           cp site/index.html _site/
+          cp history.json _site/
           cp data/*.csv _site/data/
           cp stock.xlsx _site/
           printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt

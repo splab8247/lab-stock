@@ -65,6 +65,12 @@ main{padding:20px;overflow:auto;min-width:0}
 .bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bt{height:12px;background:var(--empty);border-radius:3px;overflow:hidden}.bt i{display:block;height:100%;border-radius:3px}
 .bn{text-align:right;font-variant-numeric:tabular-nums;color:var(--mute)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 8px 12px}
+.hist{max-height:300px;overflow:auto}
+.hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
+.hi:hover{background:var(--bg)}.hw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm{color:var(--mute);font-size:11px;white-space:nowrap}
+.hv{font-size:10px;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--mute);white-space:nowrap}
+.hv.v-추가{background:#dcfce7;color:#166534}.hv.v-수정{background:#dbeafe;color:#1e40af}.hv.v-삭제{background:#fee2e2;color:#991b1b}.hv.v-병합,.hv.v-병합해제{background:#ede9fe;color:#5b21b6}.hv.v-이름변경{background:#fef3c7;color:#92400e}
+.slot.flash{animation:flash 1.6s ease}@keyframes flash{0%,60%{outline:3px solid var(--hit);outline-offset:-3px}100%{outline-color:transparent}}
 .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer}.chip:hover{border-color:var(--acc);color:var(--acc)}
 .more{margin-top:6px;border:0;background:none;color:var(--acc);cursor:pointer;font-size:12px}
@@ -266,6 +272,7 @@ async function saveFile(sh,mutate,what,focusKey){
    rows=mutate(rows,hdr);
    try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
      message:`${what} (${cfg.name})`,content:b64e(toCSV(rows))})});
+    hist.unshift({sha:'',date:new Date().toISOString(),what,who:cfg.name});  // show own edit right away
     build(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
     const ns=focusKey&&sh.boxes.flatMap(b=>b.slots).find(x=>keyOf(x.box,x.pos)===focusKey);
     if(ns&&det.classList.contains('open')){openDet(ns,false);$('dmsg').className='msg ok';$('dmsg').textContent='저장했습니다.'}
@@ -341,7 +348,7 @@ $('mbar').addEventListener('click',async e=>{if(!pending)return;if(e.target.id==
  const ok=await saveRows(sh,ch,`${b.name} ${rectTxt(b,R)} 병합`,keyOf(b.name,anchorPos));if(ok)hideBar()});
 
 // ---------- analytics: counts per item / per manager (bar charts) ----------
-const ana={sheet:'celline',open:{item:null,mgr:null},all:{item:false,mgr:false}};
+const ana={sheet:'celline',open:{item:null},all:{item:false,hist:false}};
 function anaSheet(){return view.t==='all'?SHEETS.find(s=>s.key===ana.sheet):SHEETS.find(s=>s.key===view.g)}
 function anaSlots(sh){const bs=view.t==='box'?scope():sh.boxes;return bs.flatMap(b=>b.slots).filter(s=>s.filled)}
 function barCard(kind,title,extra,sh,slots,keyOf){
@@ -359,7 +366,32 @@ function barCard(kind,title,extra,sh,slots,keyOf){
 function renderAna(){const el=$('ana');if(!el)return;const sh=anaSheet(),slots=anaSlots(sh);
  const sel=view.t==='all'?`<select id="a_sheet">${SHEETS.map(s=>`<option value="${s.key}"${s.key===sh.key?' selected':''}>${s.label}</option>`).join('')}</select>`:`<span class="tag">${sh.label}</span>`;
  el.innerHTML=barCard('item',`${esc(sh.p)} 별 개수`,sel,sh,slots,s=>s.prim.trim())
-  +barCard('mgr','관리자별 개수','',sh,slots,s=>s.mgr.trim()||NOMGR)}
+  +histCard()}
+
+// ---------- recent edits (history.json built by Actions; live from the API when a token is set) ----------
+let hist=[],histLive=false;
+async function loadHist(){histLive=false;
+ if(canEdit()){try{const r=await fetch(`https://api.github.com/repos/${cfg.repo}/commits?path=data&sha=${BRANCH}&per_page=100`,{headers:{'Authorization':'Bearer '+cfg.tok}});
+  if(r.ok){hist=(await r.json()).map(c=>{const m=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(c.commit.message.split('\n')[0]);return m&&{sha:c.sha,date:c.commit.committer.date,what:m[1],who:m[2]}}).filter(Boolean).slice(0,50);histLive=true;return}}catch(e){}}
+ try{const r=await fetch('history.json?t='+Date.now());hist=r.ok?await r.json():[]}catch(e){hist=[]}}
+function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'방금';if(s<3600)return`${Math.floor(s/60)}분 전`;if(s<86400)return`${Math.floor(s/3600)}시간 전`;if(s<86400*7)return`${Math.floor(s/86400)}일 전`;return new Date(d).toLocaleDateString('ko-KR')}
+const histBox=h=>h.what.replace(/^박스 (추가|삭제|이름 변경) /,'').split(/\s/)[0];
+function histCard(){
+ const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist;
+ const top=ana.all.hist?list:list.slice(0,12);
+ let h=`<div class="card"><div class="ch"><b>최근 변경 기록</b><span class="mute">${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${cfg.repo?`<a class="mute" style="margin-left:auto" href="https://github.com/${cfg.repo}/commits/${BRANCH}/data" target="_blank" rel="noopener">전체 기록 ↗</a>`:''}</div><div class="hist">`;
+ top.forEach((x,i)=>{const verb=(x.what.match(/(병합 해제|병합|삭제|추가|수정|이름 변경)/)||[''])[0];
+  h+=`<div class="hi" data-hist="${i}" title="${esc(new Date(x.date).toLocaleString('ko-KR'))}"><span class="hv v-${verb.replace(' ','')}">${esc(verb||'변경')}</span><span class="hw">${esc(x.what.replace(verb,'').trim())}</span><span class="hm">${esc(x.who)} · ${ago(x.date)}</span></div>`});
+ if(list.length>12)h+=`<button class="more" data-more="hist">${ana.all.hist?'접기':`이전 기록 ${list.length-12}건 더 보기`}</button>`;
+ if(!list.length)h+=`<div class="mute" style="padding:20px">${view.t==='box'?'이 박스의 변경 기록이 없습니다':'아직 사이트에서 저장한 기록이 없습니다'}</div>`;
+ return h+'</div></div>'}
+main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
+ const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist,x=list[+it.dataset.hist];
+ const nb=(x.what.match(/→ (\S+)$/)||[])[1]||histBox(x);const b=ALL().find(b=>b.name===nb);
+ if(!b)return toast(`'${nb}' 박스는 지금 없습니다 (삭제되었거나 이름이 바뀜).`,false);
+ hl=null;term='';$('q').value='';view={t:'box',g:b.sh.key,b:b.name};render();main.scrollTop=0;
+ const pos=(x.what.match(/\b([A-Z]-\d+)\b/)||[])[1],s=pos&&b.at&&b.at.get(pos);
+ if(s){const a=s.merged?b.at.get(s.mergeTo):s;openDet(a,false);const el=main.querySelector(`[data-pos="${a.pos}"]`);if(el){el.scrollIntoView({block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1600)}}});
 main.addEventListener('click',e=>{const t=e.target;
  const bar=t.closest('.bar[data-kind]');if(bar){const k=bar.dataset.kind,key=bar.dataset.key;ana.open[k]=ana.open[k]===key?null:key;renderAna();return}
  const go=t.closest('.chip[data-go]');if(go){const [k,bx]=go.dataset.go.split('|'),kind=go.dataset.kind,key=go.dataset.key;
@@ -379,7 +411,7 @@ $('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.clos
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
 async function init(){$('histb').href=cfg.repo?`https://github.com/${cfg.repo}/commits/${BRANCH}/data`:'#';$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
- try{await Promise.all(SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))}));
+ try{await Promise.all([loadHist(),...SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))})]);
   const err=SHEETS.find(s=>s.apiErr);
   $('sub').textContent=err?`GitHub 연결 실패(${err.apiErr}) · 배포본 표시 중`:`${canEdit()?'최신 데이터':'배포된 데이터'} · ${new Date().toLocaleString('ko-KR')} 불러옴`;
   render()}catch(e){main.innerHTML=`<div class="empty">데이터를 불러오지 못했습니다: ${esc(e.message)}</div>`}}
