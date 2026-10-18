@@ -65,7 +65,7 @@ main{padding:20px;overflow:auto;min-width:0}
 .bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bt{height:12px;background:var(--empty);border-radius:3px;overflow:hidden}.bt i{display:block;height:100%;border-radius:3px}
 .bn{text-align:right;font-variant-numeric:tabular-nums;color:var(--mute)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 8px 12px}
-.hist{max-height:300px;overflow:auto}
+.hist{max-height:300px;overflow:auto}.hist.open{max-height:none}
 .hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
 .hi:hover{background:var(--bg)}.hw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm{color:var(--mute);font-size:11px;white-space:nowrap}
 .hv{font-size:10px;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--mute);white-space:nowrap}
@@ -103,7 +103,7 @@ nav .addbox{color:var(--acc);font-size:12px;margin-top:2px}
 @media(max-width:760px){.wrap{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--line);max-height:240px}#q{min-width:0;width:100%}.hright{width:100%}main{padding:16px}.box{overflow-x:auto}.grid{min-width:640px}header{padding:20px 16px}}
 </style></head><body>
 <header><div><h1>실험실 재고 현황</h1><div class="sub" id="sub">불러오는 중…</div></div>
-<div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" href="stock.xlsx" download>⬇ 엑셀</a><a class="btn" id="histb" href="#" target="_blank" rel="noopener">수정 기록</a><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
+<div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" href="stock.xlsx" download>⬇ 엑셀</a><button class="btn" id="histb">최근 기록</button><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
 <div class="wrap"><nav id="nav"></nav><main id="main"><div class="empty">데이터를 불러오는 중…</div></main></div>
 <aside id="det"><button class="x" id="dx" aria-label="닫기">✕</button><div class="pos" id="dpos"></div><h3 id="dttl"></h3><dl id="ddl"></dl><div class="acts" id="dacts"></div><div class="msg" id="dmsg"></div></aside>
 <div id="mbar"></div><div id="toast"></div>
@@ -379,10 +379,10 @@ const histBox=h=>h.what.replace(/^박스 (추가|삭제|이름 변경) /,'').spl
 function histCard(){
  const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist;
  const top=ana.all.hist?list:list.slice(0,12);
- let h=`<div class="card"><div class="ch"><b>최근 변경 기록</b><span class="mute">${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${cfg.repo?`<a class="mute" style="margin-left:auto" href="https://github.com/${cfg.repo}/commits/${BRANCH}/data" target="_blank" rel="noopener">전체 기록 ↗</a>`:''}</div><div class="hist">`;
+ // no link to github.com: its commit pages rate-limit anonymous visitors (429) on the shared lab IP
+ let h=`<div class="card" id="histcard"><div class="ch"><b>최근 변경 기록</b><span class="mute">최근 ${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${list.length>12?`<button class="more" style="margin:0 0 0 auto" data-more="hist">${ana.all.hist?'접기':'더보기'}</button>`:''}</div><div class="hist${ana.all.hist?' open':''}">`;
  top.forEach((x,i)=>{const verb=(x.what.match(/(병합 해제|병합|삭제|추가|수정|이름 변경)/)||[''])[0];
   h+=`<div class="hi" data-hist="${i}" title="${esc(new Date(x.date).toLocaleString('ko-KR'))}"><span class="hv v-${verb.replace(' ','')}">${esc(verb||'변경')}</span><span class="hw">${esc(x.what.replace(verb,'').trim())}</span><span class="hm">${esc(x.who)} · ${ago(x.date)}</span></div>`});
- if(list.length>12)h+=`<button class="more" data-more="hist">${ana.all.hist?'접기':`이전 기록 ${list.length-12}건 더 보기`}</button>`;
  if(!list.length)h+=`<div class="mute" style="padding:20px">${view.t==='box'?'이 박스의 변경 기록이 없습니다':'아직 사이트에서 저장한 기록이 없습니다'}</div>`;
  return h+'</div></div>'}
 main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
@@ -408,9 +408,10 @@ $('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_
 $('s_cancel').onclick=()=>setd.close();
 $('s_ok').onclick=()=>{LS.set('name',$('s_name').value.trim());LS.set('tok',$('s_tok').value.trim());LS.set('repo',$('s_repo').value.trim());setd.close();init()};
 $('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.close();init()};
+$('histb').onclick=()=>{ana.all.hist=true;renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
-async function init(){$('histb').href=cfg.repo?`https://github.com/${cfg.repo}/commits/${BRANCH}/data`:'#';$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
+async function init(){$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
  try{await Promise.all([loadHist(),...SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))})]);
   const err=SHEETS.find(s=>s.apiErr);
   $('sub').textContent=err?`GitHub 연결 실패(${err.apiErr}) · 배포본 표시 중`:`${canEdit()?'최신 데이터':'배포된 데이터'} · ${new Date().toLocaleString('ko-KR')} 불러옴`;
