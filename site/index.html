@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>실험실 재고 현황</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e3e6eb;--acc:#2563eb;--empty:#f1f3f6;--hit:#f59e0b;--ok:#16a34a;--bad:#dc2626;
+--c-cell:#dbeafe;--c-bact:#dcfce7;--c-reag:#fef3c7;--c-si:#fce7f3;--k-cell:#2563eb;--k-bact:#16a34a;--k-reag:#d97706;--k-si:#db2777}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--panel:#1a1e24;--ink:#e6e9ee;--mute:#9aa3af;--line:#2c323b;--empty:#20252c;
+--c-cell:#1e3a5f;--c-bact:#1f4a32;--c-reag:#5a4614;--c-si:#5a2340}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 "Segoe UI","Malgun Gothic",system-ui,sans-serif}
+header{padding:28px 28px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:26px;margin:0 0 4px}header .sub{color:var(--mute);font-size:14px}
+.hright{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#q{padding:14px 18px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:340px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:8px;cursor:pointer;font:inherit}
+.btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.mode{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--mute)}.mode.on{background:#dcfce7;color:#166534}
+.wrap{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 100px)}
+nav{border-right:1px solid var(--line);padding:12px;background:var(--panel);overflow:auto}
+nav details{margin-bottom:6px}
+nav summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-weight:600}
+nav summary::-webkit-details-marker{display:none}
+nav summary::before{content:"▸";font-size:11px;color:var(--mute);transition:transform .15s}
+nav details[open]>summary::before{transform:rotate(90deg)}
+nav summary:hover,nav button:hover{background:var(--bg)}
+nav .cnt{margin-left:auto;font-size:11px;font-weight:400;color:var(--mute)}
+nav button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:6px 10px 6px 28px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+nav .on,nav .on .cnt{background:var(--acc);color:#fff}
+nav .all{padding-left:10px;font-weight:600;margin-bottom:6px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+main{padding:20px;overflow:auto;min-width:0}
+.crumb{color:var(--mute);font-size:13px;margin-bottom:10px}
+.stats{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:96px}
+.stat b{font-size:20px;display:block;font-variant-numeric:tabular-nums}.stat span{font-size:11px;color:var(--mute)}.stat.hl{border-color:var(--hit)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:20px}
+.box h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.box h2 small{color:var(--mute);font-weight:400;font-size:12px}
+.mini{margin-left:auto;display:flex;gap:6px}.mini span{font-size:11px;font-weight:400;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--mute)}
+.grid{display:grid;gap:3px}
+.hd{font-size:11px;color:var(--mute);text-align:center;align-self:center}
+.slot{min-height:60px;border-radius:5px;padding:5px 6px;font-size:11px;line-height:1.25;background:var(--empty);overflow:hidden;word-break:break-word;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.slot:hover{outline:2px solid var(--acc)}
+.slot.e:hover::after{content:"+ 새로 입력";color:var(--mute);margin:auto;font-size:10px}
+.slot .p{font-weight:600}.slot .s{color:var(--mute);font-size:10px;margin-top:auto}
+.slot.m{background:repeating-linear-gradient(45deg,var(--empty),var(--empty) 4px,transparent 4px,transparent 8px);color:var(--mute);font-size:10px;justify-content:center;align-items:center;cursor:default}
+.slot.m:hover{outline:none}
+.slot.hit{outline:2px solid var(--hit)}.slot.dim{opacity:.25}
+table{border-collapse:collapse;width:100%;font-size:12px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+tr[data-id]{cursor:pointer}tr[data-id]:hover td{background:var(--bg)}tr.dim{opacity:.3}
+#det{position:fixed;top:0;right:0;height:100%;width:400px;max-width:100%;background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px #0002;padding:20px;transform:translateX(100%);transition:transform .2s;overflow:auto;z-index:5}
+#det.open{transform:none}
+#det h3{margin:4px 0 2px;font-size:18px}#det .pos{font-size:12px;color:var(--mute)}
+#det dl{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;margin:16px 0 0;font-size:13px;align-items:center}
+#det dt{color:var(--mute)}#det dd{margin:0;word-break:break-word}#det dd.na{color:var(--mute)}
+#det input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+#det .acts{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+#det .x{float:right;cursor:pointer;border:0;background:none;color:var(--mute);font-size:20px}
+.msg{margin-top:12px;font-size:13px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+dialog{border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--panel);color:var(--ink);width:420px;max-width:92vw}
+dialog label{display:block;font-size:12px;color:var(--mute);margin:12px 0 4px}
+dialog input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+dialog p{font-size:12px;color:var(--mute);margin:6px 0 0}
+.empty{color:var(--mute);padding:40px;text-align:center}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--line);max-height:240px}#q{min-width:0;width:100%}.hright{width:100%}main{padding:16px}.box{overflow-x:auto}.grid{min-width:640px}header{padding:20px 16px}}
+</style></head><body>
+<header><div><h1>실험실 재고 현황</h1><div class="sub" id="sub">불러오는 중…</div></div>
+<div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" href="stock.xlsx" download>⬇ 엑셀</a><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"><div class="empty">데이터를 불러오는 중…</div></main></div>
+<aside id="det"><button class="x" id="dx" aria-label="닫기">✕</button><div class="pos" id="dpos"></div><h3 id="dttl"></h3><dl id="ddl"></dl><div class="acts" id="dacts"></div><div class="msg" id="dmsg"></div></aside>
+<dialog id="setd"><h3 style="margin:0">편집 설정</h3>
+ <p>이 컴퓨터의 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 [지우기]를 누르세요.</p>
+ <label>내 이름 (수정 기록에 남음)</label><input id="s_name" placeholder="홍길동">
+ <label>GitHub 토큰 (관리자에게 받은 값)</label><input id="s_tok" type="password" placeholder="github_pat_…">
+ <label>저장소 (owner/repo)</label><input id="s_repo" placeholder="자동 인식">
+ <div class="row"><button class="btn" id="s_clr">지우기</button><button class="btn" id="s_cancel">닫기</button><button class="btn pri" id="s_ok">저장</button></div></dialog>
+<script>
+const SHEETS=[
+ {key:'celline', file:'celline.csv', label:'Cell line', c:'--c-cell', k:'--k-cell', p:'cell line', s:'date'},
+ {key:'bacteria',file:'bacteria.csv',label:'Bacteria',  c:'--c-bact', k:'--k-bact', p:'name', s:'date'},
+ {key:'reagent', file:'reagent.csv', label:'Reagent',   c:'--c-reag', k:'--k-reag', p:'name', s:'concentration'},
+ {key:'siRNA',   file:'siRNA.csv',   label:'siRNA',     c:'--c-si',   k:'--k-si',   p:'siRNA name', s:'concentration'}];
+const BRANCH='main';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+
+// ---------- settings (per browser) ----------
+const LS={get(k){try{return localStorage.getItem('stock.'+k)||''}catch(e){return''}},set(k,v){try{v?localStorage.setItem('stock.'+k,v):localStorage.removeItem('stock.'+k)}catch(e){}}};
+function guessRepo(){const h=location.hostname.match(/^([^.]+)\.github\.io$/);const seg=location.pathname.split('/').filter(Boolean)[0];return h&&seg?`${h[1]}/${seg}`:''}
+const cfg={get name(){return LS.get('name')},get tok(){return LS.get('tok')},get repo(){return LS.get('repo')||guessRepo()}};
+const canEdit=()=>!!(cfg.tok&&cfg.repo);
+
+// ---------- CSV ----------
+function parseCSV(t){const rows=[];let row=[],f='',q=false;t=t.replace(/^﻿/,'');
+ for(let i=0;i<t.length;i++){const c=t[i];
+  if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+  else if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;row.push(f);rows.push(row);row=[];f=''}else f+=c}
+ if(f!==''||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.length>1||r[0]!=='')}
+const toCSV=rows=>rows.map((r,i)=>r.map(v=>i===0&&!/[",\n]/.test(v)?v:'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n')+'\n';
+
+// ---------- GitHub API ----------
+const b64e=s=>{const b=new TextEncoder().encode(s);let o='';b.forEach(x=>o+=String.fromCharCode(x));return btoa(o)};
+const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,'')),c=>c.charCodeAt(0)));
+async function gh(path,opt={}){const r=await fetch(`https://api.github.com/repos/${cfg.repo}/contents/${path}`+(opt.method?'':`?ref=${BRANCH}&t=${Date.now()}`),
+ {...opt,headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+cfg.tok,...(opt.headers||{})}});
+ if(!r.ok){const e=new Error((await r.json().catch(()=>({}))).message||r.statusText);e.status=r.status;throw e}return r.json()}
+async function loadSheet(sh){
+ if(canEdit()){try{const j=await gh('data/'+sh.file);sh.sha=j.sha;return b64d(j.content)}catch(e){console.warn('API load failed, fallback',e);sh.apiErr=e.message}}
+ const r=await fetch('data/'+sh.file+'?t='+Date.now());if(!r.ok)throw new Error(sh.file+' 불러오기 실패');return r.text()}
+
+// ---------- model ----------
+function build(sh,text){const rows=parseCSV(text);sh.cols=rows[0];sh.rows=rows.slice(1);
+ const ix=n=>sh.cols.indexOf(n),iP=ix(sh.p),iS=ix(sh.s),iRaw=ix('원본'),iNote=ix('비고');const map=new Map();
+ sh.rows.forEach((r,ri)=>{while(r.length<sh.cols.length)r.push('');const o={sh,ri,vals:r,box:r[0],pos:r[1],prim:r[iP]||r[iRaw]||'',sec:r[iS]||'',raw:r[iRaw]||''};
+  o.merged=(r[iNote]||'').startsWith('merged cell');o.filled=!o.merged&&r.slice(2).some(v=>v);o.text=r.join(' ').toLowerCase();
+  if(!map.has(o.box))map.set(o.box,{sh,name:o.box,slots:[]});map.get(o.box).slots.push(o)});
+ sh.boxes=[...map.values()];
+ sh.boxes.forEach(b=>{b.isList=b.slots.every(s=>s.pos.startsWith('list-'));
+  if(!b.isList){b.colsL=[...new Set(b.slots.map(s=>s.pos.split('-')[0]))];b.nrow=Math.max(...b.slots.map(s=>+s.pos.split('-')[1]))}})}
+const ALL=()=>SHEETS.flatMap(s=>s.boxes||[]);
+let view={t:'all'},term='';
+const match=s=>term&&s.filled&&s.text.includes(term);
+function scope(){return view.t==='all'?ALL():view.t==='group'?SHEETS.find(g=>g.key===view.g).boxes:ALL().filter(b=>b.sh.key===view.g&&b.name===view.b)}
+function counts(boxes){let f=0,e=0,h=0;boxes.forEach(b=>b.slots.forEach(s=>{if(s.merged)return;s.filled?f++:e++;if(match(s))h++}));return{f,e,h,n:boxes.length}}
+const cnt=boxes=>{const c=counts(boxes);return term?`${c.h} / ${c.f}`:`${c.f}`};
+
+// ---------- render ----------
+const nav=$('nav'),main=$('main');
+function renderNav(){const open=new Set([...nav.querySelectorAll('details[open]')].map(d=>d.dataset.g));
+ let h=`<button class="all${view.t==='all'?' on':''}" data-v='{"t":"all"}'>전체 보기<span class="cnt">${cnt(ALL())}</span></button>`;
+ SHEETS.forEach(g=>{h+=`<details data-g="${g.key}"${open.has(g.key)||view.g===g.key?' open':''}><summary><i class="dot" style="background:var(${g.k})"></i>${g.label}<span class="cnt">${cnt(g.boxes)}</span></summary>`;
+  h+=`<button class="${view.t==='group'&&view.g===g.key?'on':''}" data-v='${JSON.stringify({t:'group',g:g.key})}'>${g.label} 전체<span class="cnt">${g.boxes.length} boxes</span></button>`;
+  g.boxes.forEach(b=>{const on=view.t==='box'&&view.g===g.key&&view.b===b.name;
+   h+=`<button class="${on?'on':''}" data-v='${esc(JSON.stringify({t:'box',g:g.key,b:b.name}))}'>${esc(b.name)}<span class="cnt">${cnt([b])}</span></button>`});h+='</details>'});
+ nav.innerHTML=h}
+nav.addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(!b)return;view=JSON.parse(b.dataset.v);render()});
+const sid=s=>`${s.sh.key}|${s.ri}`;
+function slotHTML(s){if(s.merged)return`<div class="slot m" title="${esc(s.vals[s.sh.cols.indexOf('비고')])}">merged</div>`;
+ if(!s.filled)return`<div class="slot e${term?' dim':''}" data-id="${sid(s)}"></div>`;
+ const cls=term?(match(s)?' hit':' dim'):'';
+ return`<div class="slot${cls}" data-id="${sid(s)}" style="background:var(${s.sh.c})" title="${esc(s.raw||s.prim)}"><span class="p">${esc(s.prim)}</span>${s.sec?`<span class="s">${esc(s.sec)}</span>`:''}</div>`}
+function boxHTML(b){const c=counts([b]);
+ let h=`<div class="box"><h2><i class="dot" style="background:var(${b.sh.k})"></i>${esc(b.name)}<small>· ${b.sh.label}</small><span class="mini"><span>filled ${c.f}</span><span>empty ${c.e}</span>${term?`<span>match ${c.h}</span>`:''}</span></h2>`;
+ if(b.isList){const ic=b.sh.cols.indexOf('company (Cat#)');return h+`<table>${b.slots.map(s=>`<tr class="${term&&!match(s)?'dim':''}" data-id="${sid(s)}"><td style="width:60px;color:var(--mute)">${s.pos}</td><td><b>${esc(s.prim)}</b></td><td style="color:var(--mute)">${esc(s.vals[ic]||'')}</td></tr>`).join('')}</table></div>`}
+ h+=`<div class="grid" style="grid-template-columns:22px repeat(${b.colsL.length},minmax(0,1fr))"><div></div>${b.colsL.map(x=>`<div class="hd">${x}</div>`).join('')}`;
+ const at=new Map(b.slots.map(s=>[s.pos,s]));
+ for(let r=1;r<=b.nrow;r++){h+=`<div class="hd">${r}</div>`;b.colsL.forEach(cl=>{const s=at.get(cl+'-'+r);h+=s?slotHTML(s):'<div class="slot m"></div>'})}
+ return h+'</div></div>'}
+function render(){const boxes=scope(),c=counts(boxes);
+ const title=view.t==='all'?'전체':view.t==='group'?SHEETS.find(g=>g.key===view.g).label:`${SHEETS.find(g=>g.key===view.g).label} › ${view.b}`;
+ let h=`<div class="crumb">${esc(title)}</div><div class="stats"><div class="stat"><b>${c.n}</b><span>Boxes</span></div><div class="stat"><b>${c.f}</b><span>Filled slots</span></div><div class="stat"><b>${c.e}</b><span>Empty slots</span></div><div class="stat"><b>${c.f+c.e?Math.round(c.f/(c.f+c.e)*100):0}%</b><span>Occupancy</span></div>${term?`<div class="stat hl"><b>${c.h}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
+ const shown=term?boxes.filter(b=>b.slots.some(match)):boxes;
+ main.innerHTML=h+(shown.length?shown.map(boxHTML).join(''):'<div class="empty">검색 결과가 없습니다.</div>');renderNav()}
+
+// ---------- detail / edit ----------
+const det=$('det');let cur=null;
+const closeDet=()=>{det.classList.remove('open');cur=null};
+$('dx').onclick=closeDet;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('setd').open)closeDet()});
+main.addEventListener('click',e=>{const el=e.target.closest('[data-id]');if(!el)return;const [k,ri]=el.dataset.id.split('|');const sh=SHEETS.find(x=>x.key===k);
+ const s=sh.boxes.flatMap(b=>b.slots).find(x=>x.ri==ri);openDet(s,!s.filled)});
+function openDet(s,edit){cur=s;const sh=s.sh;$('dmsg').textContent='';$('dmsg').className='msg';
+ $('dpos').textContent=`${sh.label} · ${s.box} · ${s.pos}`;$('dttl').textContent=s.filled?s.prim:'빈 칸';
+ const editable=edit&&canEdit();
+ $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=s.vals[i+2];
+  return editable?`<dt>${esc(c)}</dt><dd><input data-i="${i+2}" value="${esc(v)}"${c===sh.p?' autofocus':''}></dd>`:`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
+ if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.filled?'<button class="btn" id="d_clear" style="margin-left:auto">칸 비우기</button>':''}`;
+ else if(canEdit())$('dacts').innerHTML=`<button class="btn pri" id="d_edit">수정</button>`;
+ else $('dacts').innerHTML=`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
+ det.classList.add('open');const f=det.querySelector('input[autofocus]');if(f)f.focus()}
+$('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.id;
+ if(id==='d_edit')openDet(cur,true);else if(id==='d_cancel')openDet(cur,false);
+ else if(id==='d_save'||id==='d_clear'){const nv=cur.vals.slice();
+  if(id==='d_clear'){if(!confirm(`${cur.box} ${cur.pos} 칸을 비울까요?`))return;for(let i=2;i<nv.length;i++)nv[i]=''}
+  else det.querySelectorAll('input[data-i]').forEach(inp=>nv[+inp.dataset.i]=inp.value.trim());
+  await save(cur,nv,id==='d_clear'?'비움':cur.filled?'수정':'추가')}});
+
+async function save(s,nv,verb){const sh=s.sh,msg=$('dmsg');
+ if(!cfg.name){msg.className='msg bad';msg.textContent='⚙ 편집 설정에서 이름을 먼저 입력하세요.';return}
+ msg.className='msg';msg.textContent='저장 중…';det.querySelectorAll('button').forEach(b=>b.disabled=true);
+ const key=s.vals[0]+'|'+s.vals[1];
+ try{for(let attempt=0;attempt<3;attempt++){
+   // always re-read latest file so concurrent edits on other cells are kept
+   const j=await gh('data/'+sh.file);const rows=parseCSV(b64d(j.content));
+   const idx=rows.findIndex((r,i)=>i>0&&r[0]+'|'+r[1]===key);if(idx<0)throw new Error('해당 칸을 찾을 수 없습니다');
+   rows[idx]=nv;
+   try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
+     message:`${s.box} ${s.pos} ${verb} (${cfg.name})`,content:b64e(toCSV(rows))})});
+    build(sh,toCSV(rows));render();msg.className='msg ok';msg.textContent='저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.';
+    const ns=sh.boxes.flatMap(b=>b.slots).find(x=>x.box+'|'+x.pos===key);if(ns){cur=ns;$('dttl').textContent=ns.filled?ns.prim:'빈 칸';
+     $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=ns.vals[i+2];return`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
+     $('dacts').innerHTML='<button class="btn pri" id="d_edit">수정</button>'}
+    return}catch(e){if(e.status!==409)throw e}}  // 409 = someone else saved first -> retry on fresh copy
+  throw new Error('다른 사람이 동시에 저장 중입니다. 잠시 후 다시 시도하세요.')}
+ catch(e){msg.className='msg bad';msg.textContent='저장 실패: '+(e.status===401?'토큰이 잘못되었거나 만료되었습니다.':e.status===404?'저장소를 찾을 수 없습니다(토큰 권한 확인).':e.message)}
+ finally{det.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+
+// ---------- settings dialog ----------
+const setd=$('setd');
+$('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_repo').value=LS.get('repo');$('s_repo').placeholder=guessRepo()||'owner/repo';setd.showModal()};
+$('s_cancel').onclick=()=>setd.close();
+$('s_ok').onclick=()=>{LS.set('name',$('s_name').value.trim());LS.set('tok',$('s_tok').value.trim());LS.set('repo',$('s_repo').value.trim());setd.close();init()};
+$('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.close();init()};
+$('q').oninput=e=>{term=e.target.value.trim().toLowerCase();render()};
+
+async function init(){$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
+ try{await Promise.all(SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))}));
+  const err=SHEETS.find(s=>s.apiErr);
+  $('sub').textContent=err?`GitHub 연결 실패(${err.apiErr}) · 배포본 표시 중`:`${canEdit()?'최신 데이터':'배포된 데이터'} · ${new Date().toLocaleString('ko-KR')} 불러옴`;
+  render()}catch(e){main.innerHTML=`<div class="empty">데이터를 불러오지 못했습니다: ${esc(e.message)}</div>`}}
+init();
+</script></body></html>
