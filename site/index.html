@@ -14,6 +14,8 @@ h1{font-size:26px;margin:0 0 4px}header .sub{color:var(--mute);font-size:14px}
 #q{padding:14px 18px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:340px}
 .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:8px;cursor:pointer;font:inherit}
 .btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.del{color:var(--bad);border-color:var(--bad)}.btn.del:hover{background:var(--bad);color:#fff}
+.btn:disabled{opacity:.5;cursor:wait}
 .mode{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--mute)}.mode.on{background:#dcfce7;color:#166534}
 .wrap{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 100px)}
 nav{border-right:1px solid var(--line);padding:12px;background:var(--panel);overflow:auto}
@@ -158,21 +160,23 @@ const closeDet=()=>{det.classList.remove('open');cur=null};
 $('dx').onclick=closeDet;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('setd').open)closeDet()});
 main.addEventListener('click',e=>{const el=e.target.closest('[data-id]');if(!el)return;const [k,ri]=el.dataset.id.split('|');const sh=SHEETS.find(x=>x.key===k);
  const s=sh.boxes.flatMap(b=>b.slots).find(x=>x.ri==ri);openDet(s,!s.filled)});
+const DEL_BTN='<button class="btn del" id="d_clear" style="margin-left:auto">삭제</button>';
+const viewActs=s=>s.filled?`<button class="btn pri" id="d_edit">수정</button>${DEL_BTN}`:`<button class="btn pri" id="d_edit">입력</button>`;
 function openDet(s,edit){cur=s;const sh=s.sh;$('dmsg').textContent='';$('dmsg').className='msg';
  $('dpos').textContent=`${sh.label} · ${s.box} · ${s.pos}`;$('dttl').textContent=s.filled?s.prim:'빈 칸';
  const editable=edit&&canEdit();
  $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=s.vals[i+2];
   return editable?`<dt>${esc(c)}</dt><dd><input data-i="${i+2}" value="${esc(v)}"${c===sh.p?' autofocus':''}></dd>`:`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
- if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.filled?'<button class="btn" id="d_clear" style="margin-left:auto">칸 비우기</button>':''}`;
- else if(canEdit())$('dacts').innerHTML=`<button class="btn pri" id="d_edit">수정</button>`;
+ if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.filled?DEL_BTN:''}`;
+ else if(canEdit())$('dacts').innerHTML=viewActs(s);
  else $('dacts').innerHTML=`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
  det.classList.add('open');const f=det.querySelector('input[autofocus]');if(f)f.focus()}
 $('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.id;
  if(id==='d_edit')openDet(cur,true);else if(id==='d_cancel')openDet(cur,false);
  else if(id==='d_save'||id==='d_clear'){const nv=cur.vals.slice();
-  if(id==='d_clear'){if(!confirm(`${cur.box} ${cur.pos} 칸을 비울까요?`))return;for(let i=2;i<nv.length;i++)nv[i]=''}
+  if(id==='d_clear'){if(!confirm(`${cur.box} ${cur.pos} 칸의 데이터를 삭제할까요?\n(${cur.prim})\n\n삭제 후에도 수정 기록에서 되돌릴 수 있습니다.`))return;for(let i=2;i<nv.length;i++)nv[i]=''}
   else det.querySelectorAll('input[data-i]').forEach(inp=>nv[+inp.dataset.i]=inp.value.trim());
-  await save(cur,nv,id==='d_clear'?'비움':cur.filled?'수정':'추가')}});
+  await save(cur,nv,id==='d_clear'?'삭제':cur.filled?'수정':'추가')}});
 
 async function save(s,nv,verb){const sh=s.sh,msg=$('dmsg');
  if(!cfg.name){msg.className='msg bad';msg.textContent='⚙ 편집 설정에서 이름을 먼저 입력하세요.';return}
@@ -188,7 +192,7 @@ async function save(s,nv,verb){const sh=s.sh,msg=$('dmsg');
     build(sh,toCSV(rows));render();msg.className='msg ok';msg.textContent='저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.';
     const ns=sh.boxes.flatMap(b=>b.slots).find(x=>x.box+'|'+x.pos===key);if(ns){cur=ns;$('dttl').textContent=ns.filled?ns.prim:'빈 칸';
      $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=ns.vals[i+2];return`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
-     $('dacts').innerHTML='<button class="btn pri" id="d_edit">수정</button>'}
+     $('dacts').innerHTML=viewActs(ns)}
     return}catch(e){if(e.status!==409)throw e}}  // 409 = someone else saved first -> retry on fresh copy
   throw new Error('다른 사람이 동시에 저장 중입니다. 잠시 후 다시 시도하세요.')}
  catch(e){msg.className='msg bad';msg.textContent='저장 실패: '+(e.status===401?'토큰이 잘못되었거나 만료되었습니다.':e.status===404?'저장소를 찾을 수 없습니다(토큰 권한 확인).':e.message)}
