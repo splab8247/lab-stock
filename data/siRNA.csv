@@ -160,7 +160,7 @@ box,matrix,target,siRNA name,concentration,company,date,manager,비고,원본,me
 "siRNA_stock1","F-9","","","","","","","","",""
 "siRNA_stock1","G-9","","","","","","","","",""
 "siRNA_stock1","H-9","","","","","","","","",""
-"siRNA_stock1","I-9","","","","","","","","","I-8"
+"siRNA_stock1","I-9","","","","","","","","",""
 "siRNA_stock2","A-1","NC","siNC","20μM","","2023-11-27","","aliquoted","siNC (20μM) aliquoted 23.11.27",""
 "siRNA_stock2","B-1","NC","siNC","20μM","","2023-11-27","","aliquoted","siNC (20μM) aliquoted 23.11.27",""
 "siRNA_stock2","C-1","NC","siNC","20μM","","2023-11-27","","aliquoted","siNC (20μM) aliquoted 23.11.27",""
