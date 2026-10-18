@@ -47,6 +47,13 @@ main{padding:20px;overflow:auto;min-width:0}
 .slot.m{background:repeating-linear-gradient(45deg,var(--empty),var(--empty) 4px,transparent 4px,transparent 8px);color:var(--mute);font-size:10px;justify-content:center;align-items:center;cursor:default}
 .slot.m:hover{outline:none}
 .slot.hit{outline:2px solid var(--hit)}.slot.dim{opacity:.25}
+.slot.mg{justify-content:center;align-items:center;text-align:center;font-size:12px}.slot.mg .s{margin-top:0}
+.grid.ed{user-select:none}
+.slot.sel{outline:2px dashed var(--acc);outline-offset:-2px;filter:brightness(.92)}
+#mbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,150%);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #0003;padding:10px 12px 10px 16px;display:flex;gap:10px;align-items:center;transition:transform .2s;z-index:6;font-size:14px}
+#mbar.show{transform:translate(-50%,0)}
+#toast{position:fixed;left:50%;top:16px;transform:translate(-50%,-150%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:8px;font-size:13px;transition:transform .2s;z-index:7;max-width:90vw}
+#toast.show{transform:translate(-50%,0)}#toast.bad{background:var(--bad);color:#fff}
 table{border-collapse:collapse;width:100%;font-size:12px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
 tr[data-id]{cursor:pointer}tr[data-id]:hover td{background:var(--bg)}tr.dim{opacity:.3}
 #det{position:fixed;top:0;right:0;height:100%;width:400px;max-width:100%;background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px #0002;padding:20px;transform:translateX(100%);transition:transform .2s;overflow:auto;z-index:5}
@@ -70,6 +77,7 @@ dialog p{font-size:12px;color:var(--mute);margin:6px 0 0}
 <div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" href="stock.xlsx" download>⬇ 엑셀</a><a class="btn" id="histb" href="#" target="_blank" rel="noopener">수정 기록</a><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
 <div class="wrap"><nav id="nav"></nav><main id="main"><div class="empty">데이터를 불러오는 중…</div></main></div>
 <aside id="det"><button class="x" id="dx" aria-label="닫기">✕</button><div class="pos" id="dpos"></div><h3 id="dttl"></h3><dl id="ddl"></dl><div class="acts" id="dacts"></div><div class="msg" id="dmsg"></div></aside>
+<div id="mbar"></div><div id="toast"></div>
 <dialog id="setd"><h3 style="margin:0">편집 설정</h3>
  <p>이 컴퓨터의 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 [지우기]를 누르세요.</p>
  <label>내 이름 (수정 기록에 남음)</label><input id="s_name" placeholder="홍길동">
@@ -111,20 +119,28 @@ async function loadSheet(sh){
  const r=await fetch('data/'+sh.file+'?t='+Date.now());if(!r.ok)throw new Error(sh.file+' 불러오기 실패');return r.text()}
 
 // ---------- model ----------
+const pp=p=>{const m=/^([A-Z]+)-(\d+)$/.exec(p);return m?{c:m[1],r:+m[2]}:null};
 function build(sh,text){const rows=parseCSV(text);sh.cols=rows[0];sh.rows=rows.slice(1);
- const ix=n=>sh.cols.indexOf(n),iP=ix(sh.p),iS=ix(sh.s),iRaw=ix('원본'),iNote=ix('비고');const map=new Map();
+ const ix=n=>sh.cols.indexOf(n),iP=ix(sh.p),iS=ix(sh.s),iRaw=ix('원본');sh.iM=ix('merged_to');const map=new Map();
+ sh.vis=sh.cols.map((c,i)=>i).filter(i=>i>=2&&i!==sh.iM);  // columns shown in the detail panel
  sh.rows.forEach((r,ri)=>{while(r.length<sh.cols.length)r.push('');const o={sh,ri,vals:r,box:r[0],pos:r[1],prim:r[iP]||r[iRaw]||'',sec:r[iS]||'',raw:r[iRaw]||''};
-  o.merged=(r[iNote]||'').startsWith('merged cell');o.filled=!o.merged&&r.slice(2).some(v=>v);o.text=r.join(' ').toLowerCase();
+  o.mergeTo=sh.iM>=0?r[sh.iM]:'';o.merged=!!o.mergeTo;o.filled=!o.merged&&sh.vis.some(i=>r[i]);o.text=r.join(' ').toLowerCase();
   if(!map.has(o.box))map.set(o.box,{sh,name:o.box,slots:[]});map.get(o.box).slots.push(o)});
  sh.boxes=[...map.values()];
- sh.boxes.forEach(b=>{b.isList=b.slots.every(s=>s.pos.startsWith('list-'));
-  if(!b.isList){b.colsL=[...new Set(b.slots.map(s=>s.pos.split('-')[0]))];b.nrow=Math.max(...b.slots.map(s=>+s.pos.split('-')[1]))}})}
+ sh.boxes.forEach(b=>{b.isList=b.slots.every(s=>s.pos.startsWith('list-'));if(b.isList)return;
+  b.colsL=[...new Set(b.slots.map(s=>pp(s.pos).c))];b.nrow=Math.max(...b.slots.map(s=>pp(s.pos).r));
+  b.at=new Map(b.slots.map(s=>[s.pos,s]));
+  // span rect per slot (covered cells extend their anchor's rect); indices: c = column index, r = row number
+  b.slots.forEach(s=>{const p=pp(s.pos);s.rect={c0:b.colsL.indexOf(p.c),c1:b.colsL.indexOf(p.c),r0:p.r,r1:p.r}});
+  b.slots.filter(s=>s.merged).forEach(s=>{const a=b.at.get(s.mergeTo);if(!a){s.merged=false;return}const p=pp(s.pos),ci=b.colsL.indexOf(p.c);
+   a.rect.c0=Math.min(a.rect.c0,ci);a.rect.c1=Math.max(a.rect.c1,ci);a.rect.r0=Math.min(a.rect.r0,p.r);a.rect.r1=Math.max(a.rect.r1,p.r);a.isAnchor=true})})}
 const ALL=()=>SHEETS.flatMap(s=>s.boxes||[]);
 let view={t:'all'},term='';
 const match=s=>term&&s.filled&&s.text.includes(term);
 function scope(){return view.t==='all'?ALL():view.t==='group'?SHEETS.find(g=>g.key===view.g).boxes:ALL().filter(b=>b.sh.key===view.g&&b.name===view.b)}
 function counts(boxes){let f=0,e=0,h=0;boxes.forEach(b=>b.slots.forEach(s=>{if(s.merged)return;s.filled?f++:e++;if(match(s))h++}));return{f,e,h,n:boxes.length}}
 const cnt=boxes=>{const c=counts(boxes);return term?`${c.h} / ${c.f}`:`${c.f}`};
+const rectTxt=(b,r)=>`${b.colsL[r.c0]}-${r.r0} ~ ${b.colsL[r.c1]}-${r.r1}`;
 
 // ---------- render ----------
 const nav=$('nav'),main=$('main');
@@ -137,66 +153,115 @@ function renderNav(){const open=new Set([...nav.querySelectorAll('details[open]'
  nav.innerHTML=h}
 nav.addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(!b)return;view=JSON.parse(b.dataset.v);render()});
 const sid=s=>`${s.sh.key}|${s.ri}`;
-function slotHTML(s){if(s.merged)return`<div class="slot m" title="${esc(s.vals[s.sh.cols.indexOf('비고')])}">merged</div>`;
- if(!s.filled)return`<div class="slot e${term?' dim':''}" data-id="${sid(s)}"></div>`;
- const cls=term?(match(s)?' hit':' dim'):'';
- return`<div class="slot${cls}" data-id="${sid(s)}" style="background:var(${s.sh.c})" title="${esc(s.raw||s.prim)}"><span class="p">${esc(s.prim)}</span>${s.sec?`<span class="s">${esc(s.sec)}</span>`:''}</div>`}
+function slotHTML(s){const R=s.rect,big=R.c1>R.c0||R.r1>R.r0;
+ const place=`grid-row:${R.r0+1}/${R.r1+2};grid-column:${R.c0+2}/${R.c1+3};`;
+ const data=`data-id="${sid(s)}" data-pos="${s.pos}" data-rect="${R.c0},${R.r0},${R.c1},${R.r1}"`;
+ if(!s.filled)return`<div class="slot e${big?' mg':''}${term?' dim':''}" ${data} style="${place}"></div>`;
+ const cls=(big?' mg':'')+(term?(match(s)?' hit':' dim'):'');
+ return`<div class="slot${cls}" ${data} style="${place}background:var(${s.sh.c})" title="${esc(s.raw||s.prim)}"><span class="p">${esc(s.prim)}</span>${s.sec?`<span class="s">${esc(s.sec)}</span>`:''}</div>`}
 function boxHTML(b){const c=counts([b]);
  let h=`<div class="box"><h2><i class="dot" style="background:var(${b.sh.k})"></i>${esc(b.name)}<small>· ${b.sh.label}</small><span class="mini"><span>filled ${c.f}</span><span>empty ${c.e}</span>${term?`<span>match ${c.h}</span>`:''}</span></h2>`;
  if(b.isList){const ic=b.sh.cols.indexOf('company (Cat#)');return h+`<table>${b.slots.map(s=>`<tr class="${term&&!match(s)?'dim':''}" data-id="${sid(s)}"><td style="width:60px;color:var(--mute)">${s.pos}</td><td><b>${esc(s.prim)}</b></td><td style="color:var(--mute)">${esc(s.vals[ic]||'')}</td></tr>`).join('')}</table></div>`}
- h+=`<div class="grid" style="grid-template-columns:22px repeat(${b.colsL.length},minmax(0,1fr))"><div></div>${b.colsL.map(x=>`<div class="hd">${x}</div>`).join('')}`;
- const at=new Map(b.slots.map(s=>[s.pos,s]));
- for(let r=1;r<=b.nrow;r++){h+=`<div class="hd">${r}</div>`;b.colsL.forEach(cl=>{const s=at.get(cl+'-'+r);h+=s?slotHTML(s):'<div class="slot m"></div>'})}
+ h+=`<div class="grid${canEdit()?' ed':''}" data-bk="${b.sh.key}|${esc(b.name)}" style="grid-template-columns:22px repeat(${b.colsL.length},minmax(0,1fr));grid-template-rows:auto repeat(${b.nrow},minmax(60px,auto))">`;
+ h+=b.colsL.map((x,i)=>`<div class="hd" style="grid-row:1;grid-column:${i+2}">${x}</div>`).join('');
+ for(let r=1;r<=b.nrow;r++)h+=`<div class="hd" style="grid-row:${r+1};grid-column:1">${r}</div>`;
+ b.slots.forEach(s=>{if(!s.merged)h+=slotHTML(s)});
  return h+'</div></div>'}
 function render(){const boxes=scope(),c=counts(boxes);
  const title=view.t==='all'?'전체':view.t==='group'?SHEETS.find(g=>g.key===view.g).label:`${SHEETS.find(g=>g.key===view.g).label} › ${view.b}`;
- let h=`<div class="crumb">${esc(title)}</div><div class="stats"><div class="stat"><b>${c.n}</b><span>Boxes</span></div><div class="stat"><b>${c.f}</b><span>Filled slots</span></div><div class="stat"><b>${c.e}</b><span>Empty slots</span></div><div class="stat"><b>${c.f+c.e?Math.round(c.f/(c.f+c.e)*100):0}%</b><span>Occupancy</span></div>${term?`<div class="stat hl"><b>${c.h}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
+ let h=`<div class="crumb">${esc(title)}${canEdit()?' · <span style="color:var(--acc)">여러 칸을 드래그하면 병합할 수 있어요</span>':''}</div><div class="stats"><div class="stat"><b>${c.n}</b><span>Boxes</span></div><div class="stat"><b>${c.f}</b><span>Filled slots</span></div><div class="stat"><b>${c.e}</b><span>Empty slots</span></div><div class="stat"><b>${c.f+c.e?Math.round(c.f/(c.f+c.e)*100):0}%</b><span>Occupancy</span></div>${term?`<div class="stat hl"><b>${c.h}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
  const shown=term?boxes.filter(b=>b.slots.some(match)):boxes;
  main.innerHTML=h+(shown.length?shown.map(boxHTML).join(''):'<div class="empty">검색 결과가 없습니다.</div>');renderNav()}
+const boxOf=bk=>{const [k,n]=bk.split('|');return SHEETS.find(x=>x.key===k).boxes.find(b=>b.name===n)};
+
+// ---------- toast ----------
+let toastT;function toast(t,ok=true){const el=$('toast');el.textContent=t;el.className='show '+(ok?'ok':'bad');clearTimeout(toastT);toastT=setTimeout(()=>el.className='',ok?3500:7000)}
 
 // ---------- detail / edit ----------
 const det=$('det');let cur=null;
 const closeDet=()=>{det.classList.remove('open');cur=null};
-$('dx').onclick=closeDet;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('setd').open)closeDet()});
-main.addEventListener('click',e=>{const el=e.target.closest('[data-id]');if(!el)return;const [k,ri]=el.dataset.id.split('|');const sh=SHEETS.find(x=>x.key===k);
+$('dx').onclick=closeDet;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('setd').open){closeDet();hideBar()}});
+let justDragged=false;
+main.addEventListener('click',e=>{if(justDragged)return;const el=e.target.closest('[data-id]');if(!el)return;const [k,ri]=el.dataset.id.split('|');const sh=SHEETS.find(x=>x.key===k);
  const s=sh.boxes.flatMap(b=>b.slots).find(x=>x.ri==ri);openDet(s,!s.filled)});
 const DEL_BTN='<button class="btn del" id="d_clear" style="margin-left:auto">삭제</button>';
-const viewActs=s=>s.filled?`<button class="btn pri" id="d_edit">수정</button>${DEL_BTN}`:`<button class="btn pri" id="d_edit">입력</button>`;
+const viewActs=s=>(s.filled?`<button class="btn pri" id="d_edit">수정</button>`:`<button class="btn pri" id="d_edit">입력</button>`)+(s.isAnchor?'<button class="btn" id="d_unmerge">병합 해제</button>':'')+(s.filled?DEL_BTN:'');
 function openDet(s,edit){cur=s;const sh=s.sh;$('dmsg').textContent='';$('dmsg').className='msg';
- $('dpos').textContent=`${sh.label} · ${s.box} · ${s.pos}`;$('dttl').textContent=s.filled?s.prim:'빈 칸';
+ const b=sh.boxes.find(x=>x.name===s.box);
+ $('dpos').textContent=`${sh.label} · ${s.box} · ${s.isAnchor?'병합 '+rectTxt(b,s.rect):s.pos}`;$('dttl').textContent=s.filled?s.prim:(s.isAnchor?'빈 병합 칸':'빈 칸');
  const editable=edit&&canEdit();
- $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=s.vals[i+2];
-  return editable?`<dt>${esc(c)}</dt><dd><input data-i="${i+2}" value="${esc(v)}"${c===sh.p?' autofocus':''}></dd>`:`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
- if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.filled?DEL_BTN:''}`;
+ $('ddl').innerHTML=sh.vis.map(i=>{const c=sh.cols[i],v=s.vals[i];
+  return editable?`<dt>${esc(c)}</dt><dd><input data-i="${i}" value="${esc(v)}"${c===sh.p?' autofocus':''}></dd>`:`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
+ if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.isAnchor?'<button class="btn" id="d_unmerge">병합 해제</button>':''}${s.filled?DEL_BTN:''}`;
  else if(canEdit())$('dacts').innerHTML=viewActs(s);
  else $('dacts').innerHTML=`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
  det.classList.add('open');const f=det.querySelector('input[autofocus]');if(f)f.focus()}
-$('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.id;
- if(id==='d_edit')openDet(cur,true);else if(id==='d_cancel')openDet(cur,false);
- else if(id==='d_save'||id==='d_clear'){const nv=cur.vals.slice();
-  if(id==='d_clear'){if(!confirm(`${cur.box} ${cur.pos} 칸의 데이터를 삭제할까요?\n(${cur.prim})\n\n삭제 후에도 수정 기록에서 되돌릴 수 있습니다.`))return;for(let i=2;i<nv.length;i++)nv[i]=''}
+const keyOf=(box,pos)=>box+'|'+pos;
+$('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.id,s=cur,sh=s.sh;
+ if(id==='d_edit')openDet(s,true);else if(id==='d_cancel')openDet(s,false);
+ else if(id==='d_unmerge'){const b=sh.boxes.find(x=>x.name===s.box);if(!confirm(`${s.box} ${rectTxt(b,s.rect)} 병합을 해제할까요?\n(데이터는 ${s.pos} 칸에 남습니다)`))return;
+  const ch=new Map();b.slots.filter(x=>x.mergeTo===s.pos).forEach(x=>{const nv=x.vals.slice();nv[sh.iM]='';ch.set(keyOf(x.box,x.pos),nv)});
+  await saveRows(sh,ch,`${s.box} ${rectTxt(b,s.rect)} 병합 해제`,keyOf(s.box,s.pos))}
+ else if(id==='d_save'||id==='d_clear'){const nv=s.vals.slice();
+  if(id==='d_clear'){if(!confirm(`${s.box} ${s.pos} 칸의 데이터를 삭제할까요?\n(${s.prim})\n\n삭제 후에도 수정 기록에서 되돌릴 수 있습니다.`))return;sh.vis.forEach(i=>nv[i]='')}
   else det.querySelectorAll('input[data-i]').forEach(inp=>nv[+inp.dataset.i]=inp.value.trim());
-  await save(cur,nv,id==='d_clear'?'삭제':cur.filled?'수정':'추가')}});
+  await saveRows(sh,new Map([[keyOf(s.box,s.pos),nv]]),`${s.box} ${s.pos} ${id==='d_clear'?'삭제':s.filled?'수정':'추가'}`,keyOf(s.box,s.pos))}});
 
-async function save(s,nv,verb){const sh=s.sh,msg=$('dmsg');
- if(!cfg.name){msg.className='msg bad';msg.textContent='⚙ 편집 설정에서 이름을 먼저 입력하세요.';return}
- msg.className='msg';msg.textContent='저장 중…';det.querySelectorAll('button').forEach(b=>b.disabled=true);
- const key=s.vals[0]+'|'+s.vals[1];
+// ---------- save: replace rows (by box|matrix) in the latest copy of the CSV ----------
+async function saveRows(sh,changes,what,focusKey){
+ if(!cfg.name){toast('⚙ 편집 설정에서 이름을 먼저 입력하세요.',false);$('dmsg').className='msg bad';$('dmsg').textContent='⚙ 편집 설정에서 이름을 먼저 입력하세요.';return false}
+ $('dmsg').className='msg';$('dmsg').textContent='저장 중…';toast('저장 중…');document.querySelectorAll('#det button,#mbar button').forEach(b=>b.disabled=true);
  try{for(let attempt=0;attempt<3;attempt++){
    // always re-read latest file so concurrent edits on other cells are kept
-   const j=await gh('data/'+sh.file);const rows=parseCSV(b64d(j.content));
-   const idx=rows.findIndex((r,i)=>i>0&&r[0]+'|'+r[1]===key);if(idx<0)throw new Error('해당 칸을 찾을 수 없습니다');
-   rows[idx]=nv;
+   const j=await gh('data/'+sh.file);const rows=parseCSV(b64d(j.content));const hdr=rows[0];
+   const iMr=hdr.indexOf('merged_to');
+   for(const [k,nv] of changes){const idx=rows.findIndex((r,i)=>i>0&&r[0]+'|'+r[1]===k);if(idx<0)throw new Error(k+' 칸을 찾을 수 없습니다');
+    // map by column name in case the file's columns differ from the loaded copy
+    rows[idx]=hdr.map(c=>{const i=sh.cols.indexOf(c);return i>=0?nv[i]:(rows[idx][hdr.indexOf(c)]||'')});if(iMr<0)throw new Error('merged_to 열이 없습니다')}
    try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
-     message:`${s.box} ${s.pos} ${verb} (${cfg.name})`,content:b64e(toCSV(rows))})});
-    build(sh,toCSV(rows));render();msg.className='msg ok';msg.textContent='저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.';
-    const ns=sh.boxes.flatMap(b=>b.slots).find(x=>x.box+'|'+x.pos===key);if(ns){cur=ns;$('dttl').textContent=ns.filled?ns.prim:'빈 칸';
-     $('ddl').innerHTML=sh.cols.slice(2).map((c,i)=>{const v=ns.vals[i+2];return`<dt>${esc(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
-     $('dacts').innerHTML=viewActs(ns)}
-    return}catch(e){if(e.status!==409)throw e}}  // 409 = someone else saved first -> retry on fresh copy
+     message:`${what} (${cfg.name})`,content:b64e(toCSV(rows))})});
+    build(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
+    const ns=focusKey&&sh.boxes.flatMap(b=>b.slots).find(x=>keyOf(x.box,x.pos)===focusKey);
+    if(ns&&det.classList.contains('open')){openDet(ns,false);$('dmsg').className='msg ok';$('dmsg').textContent='저장했습니다.'}
+    return true}catch(e){if(e.status!==409)throw e}}  // 409 = someone else saved first -> retry on fresh copy
   throw new Error('다른 사람이 동시에 저장 중입니다. 잠시 후 다시 시도하세요.')}
- catch(e){msg.className='msg bad';msg.textContent='저장 실패: '+(e.status===401?'토큰이 잘못되었거나 만료되었습니다.':e.status===404?'저장소를 찾을 수 없습니다(토큰 권한 확인).':e.message)}
- finally{det.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+ catch(e){const t='저장 실패: '+(e.status===401?'토큰이 잘못되었거나 만료되었습니다.':e.status===404?'저장소를 찾을 수 없습니다(토큰 권한 확인).':e.message);
+  toast(t,false);$('dmsg').className='msg bad';$('dmsg').textContent=t;return false}
+ finally{document.querySelectorAll('#det button,#mbar button').forEach(b=>b.disabled=false)}}
+
+// ---------- drag to merge ----------
+let drag=null,pending=null;
+const rectOf=el=>{const [c0,r0,c1,r1]=el.dataset.rect.split(',').map(Number);return{c0,r0,c1,r1}};
+const inter=(a,b)=>a.c0<=b.c1&&b.c0<=a.c1&&a.r0<=b.r1&&b.r0<=a.r1;
+const inside=(a,b)=>a.c0>=b.c0&&a.c1<=b.c1&&a.r0>=b.r0&&a.r1<=b.r1;  // a inside b
+const union=(a,b)=>({c0:Math.min(a.c0,b.c0),c1:Math.max(a.c1,b.c1),r0:Math.min(a.r0,b.r0),r1:Math.max(a.r1,b.r1)});
+function paintSel(g,R){g.querySelectorAll('[data-rect]').forEach(el=>el.classList.toggle('sel',!!R&&inter(rectOf(el),R)))}
+main.addEventListener('mousedown',e=>{if(!canEdit()||e.button!==0)return;const el=e.target.closest('.grid [data-rect]');if(!el)return;
+ hideBar();drag={g:el.closest('.grid'),a:rectOf(el),b:rectOf(el)};e.preventDefault()});
+main.addEventListener('mouseover',e=>{if(!drag)return;const el=e.target.closest('[data-rect]');if(!el||el.closest('.grid')!==drag.g)return;
+ drag.b=rectOf(el);paintSel(drag.g,union(drag.a,drag.b))});
+document.addEventListener('mouseup',()=>{if(!drag)return;const d=drag;drag=null;const R=union(d.a,d.b);
+ if(R.c0===R.c1&&R.r0===R.r1||(d.a.c0===d.b.c0&&d.a.r0===d.b.r0)){paintSel(d.g,null);return}
+ justDragged=true;setTimeout(()=>justDragged=false,0);showBar(boxOf(d.g.dataset.bk),R,d.g)});
+function hideBar(){$('mbar').className='';if(pending){paintSel(pending.g,null);pending=null}}
+function showBar(b,R,g){pending={b,R,g};const n=(R.c1-R.c0+1)*(R.r1-R.r0+1);
+ $('mbar').innerHTML=`<b>${esc(b.name)}</b> ${rectTxt(b,R)} <span style="color:var(--mute)">(${n}칸)</span><button class="btn pri" id="m_ok">병합</button><button class="btn" id="m_no">취소</button>`;$('mbar').className='show'}
+$('mbar').addEventListener('click',async e=>{if(!pending)return;if(e.target.id==='m_no')return hideBar();if(e.target.id!=='m_ok')return;
+ const {b,R}=pending,sh=b.sh;
+ // merges touching the selection: fully inside -> absorbed, selection inside one merge -> resize, partial overlap -> refuse
+ const anchors=b.slots.filter(s=>s.isAnchor&&inter(s.rect,R));let old=[];
+ for(const a of anchors){if(inside(a.rect,R)||inside(R,a.rect))old.push(a);else return toast(`기존 병합(${rectTxt(b,a.rect)})과 일부만 겹칩니다. 병합 범위 전체를 포함해 드래그하세요.`,false)}
+ const cellsIn=r=>b.slots.filter(s=>{const p=pp(s.pos),ci=b.colsL.indexOf(p.c);return ci>=r.c0&&ci<=r.c1&&p.r>=r.r0&&p.r<=r.r1});
+ const affected=new Set([...cellsIn(R),...old.flatMap(a=>cellsIn(a.rect))]);
+ const data=[...affected].filter(s=>!s.merged&&s.filled);
+ if(data.length>1)return toast(`데이터가 있는 칸이 ${data.length}개입니다 (${data.map(s=>s.pos).join(', ')}). 하나만 남기고 삭제한 뒤 병합하세요.`,false);
+ const anchorPos=`${b.colsL[R.c0]}-${R.r0}`,src=data[0];
+ const ch=new Map();
+ affected.forEach(s=>{const nv=s.vals.slice();const p=pp(s.pos),ci=b.colsL.indexOf(p.c),inR=ci>=R.c0&&ci<=R.c1&&p.r>=R.r0&&p.r<=R.r1;
+  sh.vis.forEach(i=>nv[i]=s.pos===anchorPos&&src?src.vals[i]:'');
+  nv[sh.iM]=inR&&s.pos!==anchorPos?anchorPos:'';
+  if(nv.join('\u0001')!==s.vals.join('\u0001'))ch.set(keyOf(s.box,s.pos),nv)});
+ const ok=await saveRows(sh,ch,`${b.name} ${rectTxt(b,R)} 병합`,keyOf(b.name,anchorPos));if(ok)hideBar()});
 
 // ---------- settings dialog ----------
 const setd=$('setd');
