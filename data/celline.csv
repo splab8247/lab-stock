@@ -5,7 +5,7 @@ box,matrix,cell line,freezing medium,cell number,date,manager,비고,원본
 "cell_stock1","D-1","","","","","","",""
 "cell_stock1","E-1","Primary cortrocyte","","","2019-11-26","JS","","Primary cortrocyte 2019.11.26 JS"
 "cell_stock1","F-1","S194","","","2003-09-17","Nan","","S194 2003.09.17 Nan"
-"cell_stock1","G-1","","","","","","",""
+"cell_stock1","G-1","테스트","","","","","",""
 "cell_stock1","H-1","MOPc","","2 x 10^5 cells","2004-03-01","JSK","","MOPc (2X105 cells; 2004.03.01; JSK)"
 "cell_stock1","I-1","MOPc","","","2016-03-08","","","MOPc 2016.03.08"
 "cell_stock1","A-2","HeLa","Banker Media","","2017-02-17","WJ","","HeLa Banker Media (2017.02.17; WJ)"
