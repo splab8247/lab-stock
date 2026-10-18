@@ -70,6 +70,10 @@ dialog label{display:block;font-size:12px;color:var(--mute);margin:12px 0 4px}
 dialog input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
 dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 dialog p{font-size:12px;color:var(--mute);margin:6px 0 0}
+dialog select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+nav .addbox{color:var(--acc);font-size:12px;margin-top:2px}
+.btn.sm{padding:3px 10px;font-size:11px;font-weight:400}
+.box h2 .btn.sm{margin-left:4px}
 .empty{color:var(--mute);padding:40px;text-align:center}
 @media(max-width:760px){.wrap{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--line);max-height:240px}#q{min-width:0;width:100%}.hright{width:100%}main{padding:16px}.box{overflow-x:auto}.grid{min-width:640px}header{padding:20px 16px}}
 </style></head><body>
@@ -78,6 +82,12 @@ dialog p{font-size:12px;color:var(--mute);margin:6px 0 0}
 <div class="wrap"><nav id="nav"></nav><main id="main"><div class="empty">데이터를 불러오는 중…</div></main></div>
 <aside id="det"><button class="x" id="dx" aria-label="닫기">✕</button><div class="pos" id="dpos"></div><h3 id="dttl"></h3><dl id="ddl"></dl><div class="acts" id="dacts"></div><div class="msg" id="dmsg"></div></aside>
 <div id="mbar"></div><div id="toast"></div>
+<dialog id="boxd"><h3 style="margin:0">박스 추가</h3>
+ <label>시트</label><select id="b_sheet"></select>
+ <label>박스 이름</label><input id="b_name" placeholder="예: cell_stock9">
+ <div style="display:flex;gap:10px"><div style="flex:1"><label>열 수 (A~)</label><input id="b_cols" type="number" min="1" max="26" value="9"></div><div style="flex:1"><label>행 수 (1~)</label><input id="b_rows" type="number" min="1" max="50" value="9"></div></div>
+ <p>빈 칸으로 만들어집니다. 만든 뒤 칸을 눌러 입력하세요.</p><p id="b_msg" style="color:var(--bad)"></p>
+ <div class="row"><button class="btn" id="b_cancel">취소</button><button class="btn pri" id="b_ok">추가</button></div></dialog>
 <dialog id="setd"><h3 style="margin:0">편집 설정</h3>
  <p>이 컴퓨터의 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 [지우기]를 누르세요.</p>
  <label>내 이름 (수정 기록에 남음)</label><input id="s_name" placeholder="홍길동">
@@ -149,7 +159,8 @@ function renderNav(){const open=new Set([...nav.querySelectorAll('details[open]'
  SHEETS.forEach(g=>{h+=`<details data-g="${g.key}"${open.has(g.key)||view.g===g.key?' open':''}><summary><i class="dot" style="background:var(${g.k})"></i>${g.label}<span class="cnt">${cnt(g.boxes)}</span></summary>`;
   h+=`<button class="${view.t==='group'&&view.g===g.key?'on':''}" data-v='${JSON.stringify({t:'group',g:g.key})}'>${g.label} 전체<span class="cnt">${g.boxes.length} boxes</span></button>`;
   g.boxes.forEach(b=>{const on=view.t==='box'&&view.g===g.key&&view.b===b.name;
-   h+=`<button class="${on?'on':''}" data-v='${esc(JSON.stringify({t:'box',g:g.key,b:b.name}))}'>${esc(b.name)}<span class="cnt">${cnt([b])}</span></button>`});h+='</details>'});
+   h+=`<button class="${on?'on':''}" data-v='${esc(JSON.stringify({t:'box',g:g.key,b:b.name}))}'>${esc(b.name)}<span class="cnt">${cnt([b])}</span></button>`});
+  if(canEdit())h+=`<button class="addbox" data-add="${g.key}">＋ 박스 추가</button>`;h+='</details>'});
  nav.innerHTML=h}
 nav.addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(!b)return;view=JSON.parse(b.dataset.v);render()});
 const sid=s=>`${s.sh.key}|${s.ri}`;
@@ -160,7 +171,7 @@ function slotHTML(s){const R=s.rect,big=R.c1>R.c0||R.r1>R.r0;
  const cls=(big?' mg':'')+(term?(match(s)?' hit':' dim'):'');
  return`<div class="slot${cls}" ${data} style="${place}background:var(${s.sh.c})" title="${esc(s.raw||s.prim)}"><span class="p">${esc(s.prim)}</span>${s.sec?`<span class="s">${esc(s.sec)}</span>`:''}</div>`}
 function boxHTML(b){const c=counts([b]);
- let h=`<div class="box"><h2><i class="dot" style="background:var(${b.sh.k})"></i>${esc(b.name)}<small>· ${b.sh.label}</small><span class="mini"><span>filled ${c.f}</span><span>empty ${c.e}</span>${term?`<span>match ${c.h}</span>`:''}</span></h2>`;
+ let h=`<div class="box"><h2><i class="dot" style="background:var(${b.sh.k})"></i>${esc(b.name)}<small>· ${b.sh.label}</small><span class="mini"><span>filled ${c.f}</span><span>empty ${c.e}</span>${term?`<span>match ${c.h}</span>`:''}</span>${canEdit()?`<button class="btn sm del" data-delbox="${b.sh.key}|${esc(b.name)}">박스 삭제</button>`:''}</h2>`;
  if(b.isList){const ic=b.sh.cols.indexOf('company (Cat#)');return h+`<table>${b.slots.map(s=>`<tr class="${term&&!match(s)?'dim':''}" data-id="${sid(s)}"><td style="width:60px;color:var(--mute)">${s.pos}</td><td><b>${esc(s.prim)}</b></td><td style="color:var(--mute)">${esc(s.vals[ic]||'')}</td></tr>`).join('')}</table></div>`}
  h+=`<div class="grid${canEdit()?' ed':''}" data-bk="${b.sh.key}|${esc(b.name)}" style="grid-template-columns:22px repeat(${b.colsL.length},minmax(0,1fr));grid-template-rows:auto repeat(${b.nrow},minmax(60px,auto))">`;
  h+=b.colsL.map((x,i)=>`<div class="hd" style="grid-row:1;grid-column:${i+2}">${x}</div>`).join('');
@@ -207,17 +218,22 @@ $('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.i
   else det.querySelectorAll('input[data-i]').forEach(inp=>nv[+inp.dataset.i]=inp.value.trim());
   await saveRows(sh,new Map([[keyOf(s.box,s.pos),nv]]),`${s.box} ${s.pos} ${id==='d_clear'?'삭제':s.filled?'수정':'추가'}`,keyOf(s.box,s.pos))}});
 
-// ---------- save: replace rows (by box|matrix) in the latest copy of the CSV ----------
-async function saveRows(sh,changes,what,focusKey){
+// ---------- save ----------
+// replace rows (by box|matrix) in the latest copy of the CSV
+function saveRows(sh,changes,what,focusKey){
+ return saveFile(sh,(rows,hdr)=>{
+  for(const [k,nv] of changes){const idx=rows.findIndex((r,i)=>i>0&&r[0]+'|'+r[1]===k);if(idx<0)throw new Error(k+' 칸을 찾을 수 없습니다');
+   // map by column name in case the file's columns differ from the loaded copy
+   rows[idx]=hdr.map(c=>{const i=sh.cols.indexOf(c);return i>=0?nv[i]:(rows[idx][hdr.indexOf(c)]||'')})}
+  return rows},what,focusKey)}
+// re-read the latest CSV, apply mutate(rows,hdr) -> rows, commit; retries on concurrent saves
+async function saveFile(sh,mutate,what,focusKey){
  if(!cfg.name){toast('⚙ 편집 설정에서 이름을 먼저 입력하세요.',false);$('dmsg').className='msg bad';$('dmsg').textContent='⚙ 편집 설정에서 이름을 먼저 입력하세요.';return false}
- $('dmsg').className='msg';$('dmsg').textContent='저장 중…';toast('저장 중…');document.querySelectorAll('#det button,#mbar button').forEach(b=>b.disabled=true);
+ $('dmsg').className='msg';$('dmsg').textContent='저장 중…';toast('저장 중…');document.querySelectorAll('#det button,#mbar button,#boxd button').forEach(b=>b.disabled=true);
  try{for(let attempt=0;attempt<3;attempt++){
    // always re-read latest file so concurrent edits on other cells are kept
-   const j=await gh('data/'+sh.file);const rows=parseCSV(b64d(j.content));const hdr=rows[0];
-   const iMr=hdr.indexOf('merged_to');
-   for(const [k,nv] of changes){const idx=rows.findIndex((r,i)=>i>0&&r[0]+'|'+r[1]===k);if(idx<0)throw new Error(k+' 칸을 찾을 수 없습니다');
-    // map by column name in case the file's columns differ from the loaded copy
-    rows[idx]=hdr.map(c=>{const i=sh.cols.indexOf(c);return i>=0?nv[i]:(rows[idx][hdr.indexOf(c)]||'')});if(iMr<0)throw new Error('merged_to 열이 없습니다')}
+   const j=await gh('data/'+sh.file);let rows=parseCSV(b64d(j.content));const hdr=rows[0];
+   rows=mutate(rows,hdr);
    try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
      message:`${what} (${cfg.name})`,content:b64e(toCSV(rows))})});
     build(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
@@ -227,7 +243,30 @@ async function saveRows(sh,changes,what,focusKey){
   throw new Error('다른 사람이 동시에 저장 중입니다. 잠시 후 다시 시도하세요.')}
  catch(e){const t='저장 실패: '+(e.status===401?'토큰이 잘못되었거나 만료되었습니다.':e.status===404?'저장소를 찾을 수 없습니다(토큰 권한 확인).':e.message);
   toast(t,false);$('dmsg').className='msg bad';$('dmsg').textContent=t;return false}
- finally{document.querySelectorAll('#det button,#mbar button').forEach(b=>b.disabled=false)}}
+ finally{document.querySelectorAll('#det button,#mbar button,#boxd button').forEach(b=>b.disabled=false)}}
+
+// ---------- box add / delete ----------
+const colName=i=>String.fromCharCode(65+i);
+const boxd=$('boxd');
+nav.addEventListener('click',e=>{const a=e.target.closest('[data-add]');if(!a)return;e.stopPropagation();
+ $('b_sheet').innerHTML=SHEETS.map(s=>`<option value="${s.key}"${s.key===a.dataset.add?' selected':''}>${s.label}</option>`).join('');
+ $('b_name').value='';$('b_cols').value=9;$('b_rows').value=9;$('b_msg').textContent='';boxd.showModal();$('b_name').focus()});
+$('b_cancel').onclick=()=>boxd.close();
+$('b_ok').onclick=async()=>{const sh=SHEETS.find(s=>s.key===$('b_sheet').value),name=$('b_name').value.trim(),nc=+$('b_cols').value,nr=+$('b_rows').value;
+ const bad=t=>{$('b_msg').textContent=t};
+ if(!name)return bad('박스 이름을 입력하세요.');if(/[|"]/.test(name))return bad('이름에 | 또는 " 는 쓸 수 없습니다.');
+ if(!(nc>=1&&nc<=26&&nr>=1&&nr<=50))return bad('열은 1~26, 행은 1~50 사이로 입력하세요.');
+ if(ALL().some(b=>b.name===name))return bad('같은 이름의 박스가 이미 있습니다.');
+ const ok=await saveFile(sh,(rows,hdr)=>{if(rows.some((r,i)=>i>0&&r[0]===name))throw new Error('같은 이름의 박스가 이미 있습니다');
+  for(let r=1;r<=nr;r++)for(let c=0;c<nc;c++)rows.push(hdr.map((h,i)=>i===0?name:i===1?`${colName(c)}-${r}`:''));return rows},
+  `박스 추가 ${name} (${nc}x${nr})`);
+ if(ok){boxd.close();view={t:'box',g:sh.key,b:name};render()}};
+main.addEventListener('click',async e=>{const d=e.target.closest('[data-delbox]');if(!d)return;e.stopPropagation();
+ const b=boxOf(d.dataset.delbox),c=counts([b]);
+ if(c.f>0){const t=prompt(`'${b.name}' 박스에 데이터가 ${c.f}칸 있습니다.\n박스와 안의 데이터를 모두 삭제하려면 박스 이름을 그대로 입력하세요.\n(삭제 후에도 수정 기록에서 되돌릴 수 있습니다)`);if(t===null)return;if(t.trim()!==b.name)return toast('박스 이름이 일치하지 않아 취소했습니다.',false)}
+ else if(!confirm(`빈 박스 '${b.name}'을(를) 삭제할까요?`))return;
+ closeDet();const ok=await saveFile(b.sh,rows=>rows.filter((r,i)=>i===0||r[0]!==b.name),`박스 삭제 ${b.name}`);
+ if(ok&&view.t==='box'&&view.b===b.name){view={t:'group',g:b.sh.key};render()}},true);
 
 // ---------- drag to merge ----------
 let drag=null,pending=null;
