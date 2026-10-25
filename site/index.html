@@ -4,9 +4,9 @@
 <title>실험실 재고 현황</title>
 <style>
 :root{--bg:#f6f7f9;--panel:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e3e6eb;--acc:#2563eb;--empty:#f1f3f6;--hit:#f59e0b;--ok:#16a34a;--bad:#dc2626;
---occ-lo:#22c55e;--occ-mid:#f59e0b;--occ-hi:#ef4444;
+--k-mouse:#64748b;--sx-m:#D9E1F2;--sx-mt:#1e3a8a;--sx-f:#F5DDE4;--sx-ft:#9d174d;--kh:#fde68a;--kh-t:#92400e;--occ-lo:#22c55e;--occ-mid:#f59e0b;--occ-hi:#ef4444;
 --c-cell:#dbeafe;--c-bact:#dcfce7;--c-reag:#fef3c7;--c-si:#fce7f3;--k-cell:#2563eb;--k-bact:#16a34a;--k-reag:#d97706;--k-si:#db2777}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--panel:#1a1e24;--ink:#e6e9ee;--mute:#9aa3af;--line:#2c323b;--empty:#20252c;
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--panel:#1a1e24;--ink:#e6e9ee;--mute:#9aa3af;--line:#2c323b;--empty:#20252c;--sx-m:#1e3a5f;--sx-mt:#bfdbfe;--sx-f:#5a2340;--sx-ft:#fbcfe8;--kh:#5a4614;--kh-t:#fde68a;
 --c-cell:#1e3a5f;--c-bact:#1f4a32;--c-reag:#5a4614;--c-si:#5a2340}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 "Segoe UI","Malgun Gothic",system-ui,sans-serif}
 header{padding:28px 28px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -65,6 +65,28 @@ main{padding:20px;overflow:auto;min-width:0}
 .bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bt{height:12px;background:var(--empty);border-radius:3px;overflow:hidden}.bt i{display:block;height:100%;border-radius:3px}
 .bn{text-align:right;font-variant-numeric:tabular-nums;color:var(--mute)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 4px 8px 12px}
+nav .navsep{font-size:11px;color:var(--mute);margin:12px 10px 4px;text-transform:uppercase;letter-spacing:.05em}
+nav .mnav{padding-left:10px;font-weight:600}
+.mbar2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.mbar2 select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.seg button{border:0;background:var(--panel);color:var(--mute);padding:5px 12px;font-size:12px;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
+.chk{font-size:12px;color:var(--mute);display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+.mpick{display:flex;flex-wrap:wrap;gap:6px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.mtable{padding:0;overflow:auto}
+.mt{font-size:13px}.mt th{position:sticky;top:0;background:var(--panel);font-size:12px;color:var(--mute);font-weight:600;white-space:nowrap}
+.mt td{white-space:nowrap}.mt td.na{color:var(--line)}
+.mt tr[data-mid]{cursor:pointer}.mt tr[data-mid]:hover td{background:var(--bg)}
+.mt tr.cg td{background:var(--bg);font-weight:700;font-size:12px;padding-top:10px}
+/* mouse: sex cell colors match the Excel conditional format (M #D9E1F2, F #F5DDE4); only Kras +/- is highlighted */
+.mt td.sx{font-weight:700}.mt td.sx.m{background:var(--sx-m);color:var(--sx-mt)}.mt td.sx.f{background:var(--sx-f);color:var(--sx-ft)}
+.sxb{font-weight:700;padding:2px 10px;border-radius:6px}.sxb.m{background:var(--sx-m);color:var(--sx-mt)}.sxb.f{background:var(--sx-f);color:var(--sx-ft)}
+.kh{font-family:ui-monospace,Consolas,monospace;font-weight:700;padding:1px 7px;border-radius:4px;background:var(--kh);color:var(--kh-t)}
+.pick{display:inline-flex;gap:4px;flex-wrap:wrap}.pick button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.pick button:hover{border-color:var(--acc)}.pick button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.pick button.sm.on{background:var(--sx-m);border-color:var(--sx-mt);color:var(--sx-mt);font-weight:700}.pick button.sf.on{background:var(--sx-f);border-color:var(--sx-ft);color:var(--sx-ft);font-weight:700}
+.pick button.kp.on{background:var(--kh);border-color:var(--kh-t);color:var(--kh-t);font-weight:700}
+#det input[type=date]{max-width:200px}
+dialog.toed{width:520px}.toed img{display:block;width:100%;max-width:440px;margin:12px auto 0;background:#fff;border-radius:8px}
 .hist{max-height:300px;overflow:auto}.hist.open{max-height:none}
 .hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
 .hi:hover{background:var(--bg)}.hw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm{color:var(--mute);font-size:11px;white-space:nowrap}
@@ -103,9 +125,13 @@ nav .addbox{color:var(--acc);font-size:12px;margin-top:2px}
 @media(max-width:760px){.wrap{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--line);max-height:240px}#q{min-width:0;width:100%}.hright{width:100%}main{padding:16px}.box{overflow-x:auto}.grid{min-width:640px}header{padding:20px 16px}}
 </style></head><body>
 <header><div><h1>실험실 재고 현황</h1><div class="sub" id="sub">불러오는 중…</div></div>
-<div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" href="stock.xlsx" download>⬇ 엑셀</a><button class="btn" id="histb">최근 기록</button><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
+<div class="hright"><input id="q" placeholder="검색 (예: PD36, siOGT, pSP12)"><a class="btn" id="xlb" href="stock.xlsx" download>⬇ 엑셀</a><button class="btn" id="histb">최근 기록</button><span class="mode" id="mode">보기 전용</span><button class="btn" id="setb">⚙ 편집 설정</button></div></header>
 <div class="wrap"><nav id="nav"></nav><main id="main"><div class="empty">데이터를 불러오는 중…</div></main></div>
 <aside id="det"><button class="x" id="dx" aria-label="닫기">✕</button><div class="pos" id="dpos"></div><h3 id="dttl"></h3><dl id="ddl"></dl><div class="acts" id="dacts"></div><div class="msg" id="dmsg"></div></aside>
+<dialog id="toed" class="toed"><h3 style="margin:0">발가락 표시 (Toe clipping)</h3>
+ <p>마우스 번호의 <b>일의 자리 = 앞발</b>(1~8), <b>십의 자리 = 뒷발</b>(10~80)을 자릅니다. 0은 자르지 않음, 숫자 9는 쓰지 않습니다. 엄지는 자르지 않습니다.<br>예) KPC-014 → 앞발 4 · 뒷발 10</p>
+ <img src="toe.png" alt="발가락 번호 그림: 왼쪽 앞발 1~4, 오른쪽 앞발 5~8, 왼쪽 뒷발 10~40, 오른쪽 뒷발 50~80">
+ <div class="row"><button class="btn" onclick="this.closest('dialog').close()">닫기</button></div></dialog>
 <div id="mbar"></div><div id="toast"></div>
 <dialog id="boxd"><h3 style="margin:0">박스 추가</h3>
  <label>시트</label><select id="b_sheet"></select>
@@ -191,6 +217,7 @@ function renderNav(){const open=new Set([...nav.querySelectorAll('details[open]'
   g.boxes.forEach(b=>{const on=view.t==='box'&&view.g===g.key&&view.b===b.name;
    h+=`<button class="${on?'on':''}" data-v='${esc(JSON.stringify({t:'box',g:g.key,b:b.name}))}'>${esc(b.name)}<span class="cnt">${cnt([b])}</span></button>`});
   if(canEdit())h+=`<button class="addbox" data-add="${g.key}">＋ 박스 추가</button>`;h+='</details>'});
+ if(MOUSE.cols.length)h+=`<div class="navsep">동물</div><button class="mnav${view.t==='mouse'?' on':''}" data-v='{"t":"mouse"}'><i class="dot" style="background:var(--k-mouse)"></i>KPC mouse<span class="cnt">${MOUSE.rows.length}</span></button>`;
  nav.innerHTML=h}
 nav.addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(!b)return;view=JSON.parse(b.dataset.v);render()});
 const sid=s=>`${s.sh.key}|${s.ri}`;
@@ -214,7 +241,10 @@ const occHTML=p=>`<div class="stat occ" data-p="${p}" title="채워진 칸 비�
 const occColor=p=>p<60?'var(--occ-lo)':p<85?'var(--occ-mid)':'var(--occ-hi)';
 function fillOcc(){const el=main.querySelector('.stat.occ');if(!el)return;const p=+el.dataset.p;
  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.querySelector('.lv').style.height=p+'%';lastOcc=p}))}
-function render(){const boxes=scope(),c=counts(boxes);
+function render(){
+ // Excel button follows the page: freezer stock -> stock.xlsx, mouse -> mouse.xlsx
+ $('xlb').href=view.t==='mouse'?'mouse.xlsx':'stock.xlsx';$('xlb').textContent=view.t==='mouse'?'⬇ 마우스 엑셀':'⬇ 재고 엑셀';
+ if(view.t==='mouse')return renderMouse();const boxes=scope(),c=counts(boxes);
  const title=view.t==='all'?'전체':view.t==='group'?SHEETS.find(g=>g.key===view.g).label:`${SHEETS.find(g=>g.key===view.g).label} › ${view.b}`;
  let h=`<div class="crumb">${esc(title)}${canEdit()?' · <span style="color:var(--acc)">여러 칸을 드래그하면 병합할 수 있어요</span>':''}</div><div class="stats"><div class="stat"><b>${c.n}</b><span>Boxes</span></div><div class="stat"><b>${c.f}</b><span>Filled slots</span></div><div class="stat"><b>${c.e}</b><span>Empty slots</span></div>${occHTML(c.f+c.e?Math.round(c.f/(c.f+c.e)*100):0)}${term?`<div class="stat hl"><b>${c.h}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}${hl?`<div class="stat hl"><b>${c.h}</b><span>${hl.kind==='mgr'?'관리자':'항목'} "${esc(hl.key)}" 강조 <button class="btn sm" id="hlx">해제</button></span></div>`:''}</div>`;
  const shown=filt()?boxes.filter(b=>b.slots.some(match)):boxes;
@@ -273,7 +303,7 @@ async function saveFile(sh,mutate,what,focusKey){
    try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
      message:`${what} (${cfg.name})`,content:b64e(toCSV(rows))})});
     hist.unshift({sha:'',date:new Date().toISOString(),what,who:cfg.name});  // show own edit right away
-    build(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
+    (sh.build||build)(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
     const ns=focusKey&&sh.boxes.flatMap(b=>b.slots).find(x=>keyOf(x.box,x.pos)===focusKey);
     if(ns&&det.classList.contains('open')){openDet(ns,false);$('dmsg').className='msg ok';$('dmsg').textContent='저장했습니다.'}
     return true}catch(e){if(e.status!==409)throw e}}  // 409 = someone else saved first -> retry on fresh copy
@@ -387,6 +417,7 @@ function histCard(){
  return h+'</div></div>'}
 main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
  const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist,x=list[+it.dataset.hist];
+ const mm=/^마우스 (\S+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';view={t:'mouse'};render();if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
  const nb=(x.what.match(/→ (\S+)$/)||[])[1]||histBox(x);const b=ALL().find(b=>b.name===nb);
  if(!b)return toast(`'${nb}' 박스는 지금 없습니다 (삭제되었거나 이름이 바뀜).`,false);
  hl=null;term='';$('q').value='';view={t:'box',g:b.sh.key,b:b.name};render();main.scrollTop=0;
@@ -402,6 +433,111 @@ main.addEventListener('click',e=>{const t=e.target;
  const more=t.closest('[data-more]');if(more){ana.all[more.dataset.more]=!ana.all[more.dataset.more];renderAna()}});
 main.addEventListener('change',e=>{if(e.target.id==='a_sheet'){ana.sheet=e.target.value;ana.open={item:null,mgr:null};renderAna()}});
 
+// ---------- mouse colony (data/mice.csv: one master table, shown through column presets) ----------
+const MOUSE={key:'mouse',file:'mice.csv',label:'KPC mouse',cols:[],rows:[]};
+MOUSE.build=(sh,text)=>{const rows=parseCSV(text);sh.cols=rows[0];sh.rows=rows.slice(1).map(r=>{while(r.length<sh.cols.length)r.push('');return r})};
+const MCOL={cage:'Cage',id:'번호',sex:'성별',dob:'D.O.B',age:'주령',mother:'Parent(모)',father:'Parent(부)',generation:'세대',weaning:'Weaning',kras:'Kras',trp53:'Trp53',pdx1_cre:'Pdx1-CreER',genotyping_date:'Genotyping',status:'Status',mark:'표식',note:'비고',toe:'발가락'};
+// gene columns: italic gene name, official MGI allele on hover
+const MGENE={kras:['Kras','Kras<sup>tm4Tyj</sup> (LSL-G12D)'],trp53:['Trp53','Trp53<sup>tm1Brn</sup> (floxed)'],pdx1_cre:['Pdx1-CreER','Tg(Pdx1-cre/Esr1*)#Dam (transgene)']};
+const mhead=c=>MGENE[c]?`<i title="${MGENE[c][1].replace(/<\/?sup>/g,'')}">${MGENE[c][0]}</i>`:MCOL[c];
+// fixed choices (picked with buttons when editing)
+const MCHOICE={sex:['M','F'],kras:['+/+','+/-'],trp53:['fl/fl','fl/+','+/+'],pdx1_cre:['Tg/Tg','non-Tg']};
+const MDATE=['dob','weaning','genotyping_date'];
+const MPRESET={
+ '기본':['cage','id','sex','age','status','note'],
+ '유전형':['cage','id','sex','kras','trp53','pdx1_cre','genotyping_date','status'],
+ '가계':['id','sex','dob','age','mother','father','generation','weaning'],
+ '전체':['cage','id','sex','dob','age','mother','father','generation','weaning','kras','trp53','pdx1_cre','genotyping_date','status','mark','note']};
+const mst={preset:LS.get('mpreset')||'기본',custom:null,group:LS.get('mgroup')!=='0',status:'',sex:''};
+try{const c=JSON.parse(LS.get('mcustom')||'null');if(Array.isArray(c))mst.custom=c}catch(e){}
+const mcols=()=>mst.preset==='직접 선택'&&mst.custom?mst.custom:MPRESET[mst.preset]||MPRESET['기본'];
+const mget=(r,c)=>{const i=MOUSE.cols.indexOf(c);return i>=0?r[i]:''};
+const ageW=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return'';return Math.floor((Date.now()-new Date(d+'T00:00:00'))/6048e5)};
+// toe clip code from the number: units digit -> front paw 1-8, tens digit -> hind paw 10-80 (digit 9 is never used)
+function toe(id){const n=+(String(id).match(/(\d+)\s*$/)||[])[1];if(!n&&n!==0)return null;const u=n%10,t=Math.floor(n/10)%10;
+ return{front:u,hind:t*10,txt:`앞발 ${u||'없음'} · 뒷발 ${t?t*10:'없음'}`,bad:u===9||t===9||n>=100}}
+const mval=(r,c)=>c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
+function mouseRows(){return MOUSE.rows.filter(r=>(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))}
+function renderMouse(){
+ const all=MOUSE.rows,live=all.filter(r=>/live/i.test(mget(r,'status'))),rows=mouseRows(),cols=mcols();
+ const cages=new Set(all.map(r=>mget(r,'cage')).filter(Boolean)),statuses=[...new Set(all.map(r=>mget(r,'status')).filter(Boolean))];
+ let h=`<div class="crumb">KPC mouse${canEdit()?' · <span style="color:var(--acc)">행을 누르면 수정할 수 있어요</span>':''}</div><div class="stats">
+  <div class="stat"><b>${all.length}</b><span>전체 개체</span></div><div class="stat"><b>${live.length}</b><span>Live</span></div>
+  <div class="stat"><b>${all.filter(r=>mget(r,'sex')==='M').length} / ${all.filter(r=>mget(r,'sex')==='F').length}</b><span>♂ / ♀</span></div>
+  <div class="stat"><b>${cages.size}</b><span>Cage</span></div>
+  ${statuses.filter(s=>!/live/i.test(s)).map(s=>`<div class="stat"><b>${all.filter(r=>mget(r,'status')===s).length}</b><span>${esc(s)}</span></div>`).join('')}
+  ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
+ h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
+  <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option${s===mst.status?' selected':''}>${esc(s)}</option>`).join('')}</select>
+  <select id="m_sex"><option value="">성별 전체</option><option value="M"${mst.sex==='M'?' selected':''}>♂ M</option><option value="F"${mst.sex==='F'?' selected':''}>♀ F</option></select>
+  <label class="chk"><input type="checkbox" id="m_group"${mst.group?' checked':''}> Cage별 묶기</label>
+  <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="m_toe">🐭 발가락 표시</button>${canEdit()?'<button class="btn sm pri" id="m_add">＋ 마우스 추가</button>':''}</span></div>`;
+ if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
+ const cell=(r,c)=>{const v=mval(r,c);if(!v)return'<td class="na">·</td>';
+  if(c==='kras'&&v==='+/-')return`<td><span class="kh">${esc(v)}</span></td>`;  // only Kras het is highlighted
+  if(c==='sex'){const s=v.toUpperCase();return s==='M'||s==='F'?`<td class="sx ${s.toLowerCase()}">${s==='M'?'♂ M':'♀ F'}</td>`:`<td>${esc(v)}</td>`}
+  if(c==='id')return`<td><b>${esc(v)}</b></td>`;return`<td>${esc(v)}</td>`};
+ const showCols=mst.group?cols.filter(c=>c!=='cage'):cols;
+ let t=`<div class="box mtable"><table class="mt"><thead><tr>${showCols.map(c=>`<th>${mhead(c)}</th>`).join('')}</tr></thead><tbody>`;
+ if(mst.group){const g=new Map();rows.forEach(r=>{const k=mget(r,'cage')||'(cage 미지정)';if(!g.has(k))g.set(k,[]);g.get(k).push(r)});
+  for(const [k,rs] of g){const m=rs.filter(r=>mget(r,'sex')==='M').length,f=rs.filter(r=>mget(r,'sex')==='F').length;
+   t+=`<tr class="cg"><td colspan="${showCols.length}">${esc(k)} <span class="mute">${rs.length}마리 · ♂${m} ♀${f}</span></td></tr>`;
+   rs.forEach(r=>t+=`<tr data-mid="${esc(mget(r,'id'))}">${showCols.map(c=>cell(r,c)).join('')}</tr>`)}}
+ else rows.forEach(r=>t+=`<tr data-mid="${esc(mget(r,'id'))}">${showCols.map(c=>cell(r,c)).join('')}</tr>`);
+ if(!rows.length)t+=`<tr><td colspan="${showCols.length}" class="mute" style="padding:30px;text-align:center">해당하는 개체가 없습니다</td></tr>`;
+ main.innerHTML=h+t+'</tbody></table></div>';renderNav()}
+main.addEventListener('click',e=>{if(view.t!=='mouse')return;const t=e.target;
+ const p=t.closest('[data-mp]');if(p){mst.preset=p.dataset.mp;LS.set('mpreset',mst.preset);if(mst.preset==='직접 선택'&&!mst.custom)mst.custom=MPRESET['기본'].slice();renderMouse();return}
+ if(t.id==='m_toe')return $('toed').showModal();
+ if(t.id==='m_add')return openMouse(null,true);
+ const tr=t.closest('tr[data-mid]');if(tr)openMouse(tr.dataset.mid,false)});
+main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
+ if(t.id==='m_status'){mst.status=t.value;renderMouse()}else if(t.id==='m_sex'){mst.sex=t.value;renderMouse()}
+ else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
+ else if(t.dataset.mc){const c=t.dataset.mc;mst.custom=Object.keys(MCOL).filter(k=>k===c?t.checked:mst.custom.includes(k));LS.set('mcustom',JSON.stringify(mst.custom));renderMouse()}});
+// next free number: sequential, skipping any number that contains the digit 9
+function nextMouseId(){const ns=MOUSE.rows.map(r=>+(mget(r,'id').match(/(\d+)$/)||[])[1]||0);let n=Math.max(0,...ns)+1;while(/9/.test(String(n)))n++;return'KPC-'+String(n).padStart(3,'0')}
+let curM=null;
+function openMouse(id,edit){const r=id?MOUSE.rows.find(x=>mget(x,'id')===id):null;curM=id;cur=null;
+ const vals=r?r.slice():MOUSE.cols.map(c=>c==='id'?nextMouseId():c==='status'?'Live':'');
+ const editable=edit&&canEdit(),tc=toe(vals[MOUSE.cols.indexOf('id')]);
+ $('dmsg').textContent='';$('dmsg').className='msg';
+ $('dpos').textContent=`KPC mouse · ${vals[MOUSE.cols.indexOf('cage')]||'cage 미지정'}`;$('dttl').textContent=r?vals[MOUSE.cols.indexOf('id')]:'새 마우스';
+ const lbl=c=>MGENE[c]?`<i title="${MGENE[c][1].replace(/<\/?sup>/g,'')}">${MGENE[c][0]}</i>`:esc(MCOL[c]||c);
+ let dl=MOUSE.cols.map((c,i)=>{const v=vals[i];
+  if(editable){
+   // fixed choices -> toggle buttons (click again to clear); dates -> calendar
+   if(MCHOICE[c])return`<dt>${lbl(c)}</dt><dd><input type="hidden" data-mi="${i}" value="${esc(v)}"><span class="pick" data-for="${i}">${MCHOICE[c].map(o=>`<button type="button" data-v="${esc(o)}" class="${o===v?'on':''}${c==='sex'?' s'+o.toLowerCase():''}${c==='kras'&&o==='+/-'?' kp':''}">${c==='sex'?(o==='M'?'♂ M':'♀ F'):esc(o)}</button>`).join('')}</span></dd>`;
+   if(MDATE.includes(c))return`<dt>${lbl(c)}</dt><dd><input type="date" data-mi="${i}" value="${esc(v)}"></dd>`;
+   return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" value="${esc(v)}"${!r&&c==='cage'?' autofocus':''}></dd>`}
+  if(c==='sex'&&/^[mf]$/i.test(v))return`<dt>${lbl(c)}</dt><dd><span class="sxb ${v.toLowerCase()}">${v.toUpperCase()==='M'?'♂ M':'♀ F'}</span></dd>`;
+  if(c==='kras'&&v==='+/-')return`<dt>${lbl(c)}</dt><dd><span class="kh">${esc(v)}</span></dd>`;
+  return`<dt>${lbl(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
+ const dob=vals[MOUSE.cols.indexOf('dob')];
+ dl+=`<dt>주령</dt><dd class="${ageW(dob)===''?'na':''}">${ageW(dob)===''?'—':ageW(dob)+'주'}</dd>`;
+ if(tc)dl+=`<dt>발가락</dt><dd>${tc.txt}${tc.bad?' <span style="color:var(--bad)">(9가 들어간 번호)</span>':''} <button class="btn sm" id="m_toe2">그림</button></dd>`;
+ if(r){const kids=MOUSE.rows.filter(x=>mget(x,'mother')===id||mget(x,'father')===id).map(x=>mget(x,'id'));if(kids.length)dl+=`<dt>자손</dt><dd>${kids.length}마리 (${kids.slice(0,8).join(', ')}${kids.length>8?' …':''})</dd>`}
+ $('ddl').innerHTML=dl;
+ $('dacts').innerHTML=editable?`<button class="btn pri" id="m_save">저장</button><button class="btn" id="m_cancel">취소</button>${r?'<button class="btn del" id="m_del" style="margin-left:auto">삭제</button>':''}`
+  :canEdit()?`<button class="btn pri" id="m_edit">수정</button><button class="btn del" id="m_del" style="margin-left:auto">삭제</button>`:`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
+ det.classList.add('open');const f=det.querySelector('input[autofocus]')||det.querySelector('input');if(f&&editable)f.focus()}
+$('dacts').addEventListener('click',async e=>{const id=e.target.id;if(!id.startsWith('m_'))return;e.stopImmediatePropagation();
+ if(id==='m_edit')return openMouse(curM,true);if(id==='m_cancel')return curM?openMouse(curM,false):closeDet();
+ if(id==='m_del'){if(!confirm(`${curM}을(를) 목록에서 삭제할까요?\n(죽거나 희생한 개체는 삭제 대신 Status를 바꾸는 걸 권장합니다)`))return;
+  const ok=await saveFile(MOUSE,rows=>rows.filter((r,i)=>i===0||r[1]!==curM),`마우스 ${curM} 삭제`);if(ok)closeDet();return}
+ if(id==='m_save'){const nv=MOUSE.cols.map(()=>'');det.querySelectorAll('input[data-mi]').forEach(inp=>nv[+inp.dataset.mi]=inp.value.trim());
+  const iid=MOUSE.cols.indexOf('id'),nid=nv[iid];if(!nid)return toast('번호를 입력하세요.',false);
+  if(nid!==curM&&MOUSE.rows.some(r=>mget(r,'id')===nid))return toast(`${nid}은(는) 이미 있는 번호입니다.`,false);
+  const bad=MDATE.find(c=>{const v=nv[MOUSE.cols.indexOf(c)];return v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)});if(bad)return toast(`${MCOL[bad]}는 YYYY-MM-DD 형식으로 입력하세요.`,false);
+  const old=curM,ok=await saveFile(MOUSE,(rows,hdr)=>{const row=hdr.map(c=>nv[MOUSE.cols.indexOf(c)]??'');
+   if(old){const i=rows.findIndex((r,k)=>k>0&&r[1]===old);if(i<0)throw new Error(old+'을(를) 찾을 수 없습니다');rows[i]=row}
+   else{if(rows.some((r,k)=>k>0&&r[1]===nid))throw new Error(nid+'은(는) 이미 있습니다');rows.push(row)}return rows},`마우스 ${nid} ${old?'수정':'추가'}`);
+  if(ok){curM=nid;openMouse(nid,false)}}
+ },true);
+$('ddl').addEventListener('click',e=>{if(e.target.id==='m_toe2')return $('toed').showModal();
+ const b=e.target.closest('.pick button');if(!b)return;const p=b.parentElement,inp=p.previousElementSibling,on=!b.classList.contains('on');
+ p.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(on)b.classList.add('on');inp.value=on?b.dataset.v:''});
+
 // ---------- settings dialog ----------
 const setd=$('setd');
 $('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_repo').value=LS.get('repo');$('s_repo').placeholder=guessRepo()||'owner/repo';setd.showModal()};
@@ -412,7 +548,8 @@ $('histb').onclick=()=>{ana.all.hist=true;renderAna();const c=$('histcard');if(c
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
 async function init(){$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
- try{await Promise.all([loadHist(),...SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))})]);
+ try{await Promise.all([loadHist(),...SHEETS.map(async sh=>{sh.apiErr=null;build(sh,await loadSheet(sh))}),
+   (async()=>{try{MOUSE.build(MOUSE,await loadSheet(MOUSE))}catch(e){MOUSE.cols=[];MOUSE.rows=[]}})()]);
   const err=SHEETS.find(s=>s.apiErr);
   $('sub').textContent=err?`GitHub 연결 실패(${err.apiErr}) · 배포본 표시 중`:`${canEdit()?'최신 데이터':'배포된 데이터'} · ${new Date().toLocaleString('ko-KR')} 불러옴`;
   render()}catch(e){main.innerHTML=`<div class="empty">데이터를 불러오지 못했습니다: ${esc(e.message)}</div>`}}

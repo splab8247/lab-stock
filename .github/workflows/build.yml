@@ -39,9 +39,9 @@ jobs:
         run: |
           git config user.name "stock-bot"
           git config user.email "stock-bot@users.noreply.github.com"
-          git add stock.xlsx
+          git add stock.xlsx mouse.xlsx
           if git diff --cached --quiet; then echo "no change"; else
-            git commit -m "stock.xlsx 자동 갱신"
+            git commit -m "엑셀 자동 갱신"
             git pull --rebase origin main
             git push
           fi
@@ -54,8 +54,9 @@ jobs:
           mkdir -p _site/data
           cp site/index.html _site/
           cp history.json _site/
+          cp site/toe.png _site/
           cp data/*.csv _site/data/
-          cp stock.xlsx _site/
+          cp stock.xlsx mouse.xlsx _site/
           printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt
 
       - uses: actions/configure-pages@v5
