@@ -86,6 +86,10 @@ nav .mnav{padding-left:10px;font-weight:600}
 .pick button.sm.on{background:var(--sx-m);border-color:var(--sx-mt);color:var(--sx-mt);font-weight:700}.pick button.sf.on{background:var(--sx-f);border-color:var(--sx-ft);color:var(--sx-ft);font-weight:700}
 .pick button.kp.on{background:var(--kh);border-color:var(--kh-t);color:var(--kh-t);font-weight:700}
 #det input[type=date]{max-width:200px}
+#det select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+#det input[readonly]{background:var(--empty);color:var(--mute)}
+#det .hint{font-size:11px;color:var(--mute);margin-top:3px}
+#det .cnt2{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--mute)}#det .cnt2 input{width:64px;padding:4px 6px}
 dialog.toed{width:520px}.toed img{display:block;width:100%;max-width:440px;margin:12px auto 0;background:#fff;border-radius:8px}
 .hist{max-height:300px;overflow:auto}.hist.open{max-height:none}
 .hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
@@ -417,7 +421,7 @@ function histCard(){
  return h+'</div></div>'}
 main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
  const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist,x=list[+it.dataset.hist];
- const mm=/^마우스 (\S+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';view={t:'mouse'};render();if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
+ const mm=/^마우스 ([^\s~]+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';view={t:'mouse'};render();if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
  const nb=(x.what.match(/→ (\S+)$/)||[])[1]||histBox(x);const b=ALL().find(b=>b.name===nb);
  if(!b)return toast(`'${nb}' 박스는 지금 없습니다 (삭제되었거나 이름이 바뀜).`,false);
  hl=null;term='';$('q').value='';view={t:'box',g:b.sh.key,b:b.name};render();main.scrollTop=0;
@@ -454,18 +458,19 @@ const mcols=()=>mst.preset==='직접 선택'&&mst.custom?mst.custom:MPRESET[mst.
 const mget=(r,c)=>{const i=MOUSE.cols.indexOf(c);return i>=0?r[i]:''};
 const ageW=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return'';return Math.floor((Date.now()-new Date(d+'T00:00:00'))/6048e5)};
 // toe clip code from the number: units digit -> front paw 1-8, tens digit -> hind paw 10-80 (digit 9 is never used)
-function toe(id){const n=+(String(id).match(/(\d+)\s*$/)||[])[1];if(!n&&n!==0)return null;const u=n%10,t=Math.floor(n/10)%10;
+// the first number after "KPC-" is the clip number, so suffixed ids like KPC-037-1 still map to 37
+function toe(id){const m=String(id).match(/^KPC-(\d+)/i)||String(id).match(/(\d+)\s*$/);if(!m)return null;const n=+m[1];const u=n%10,t=Math.floor(n/10)%10;
  return{front:u,hind:t*10,txt:`앞발 ${u||'없음'} · 뒷발 ${t?t*10:'없음'}`,bad:u===9||t===9||n>=100}}
-const mval=(r,c)=>c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
+const mval=(r,c)=>c==='generation'?genDisp(r):c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
 function mouseRows(){return MOUSE.rows.filter(r=>(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))}
 function renderMouse(){
  const all=MOUSE.rows,live=all.filter(r=>/live/i.test(mget(r,'status'))),rows=mouseRows(),cols=mcols();
- const cages=new Set(all.map(r=>mget(r,'cage')).filter(Boolean)),statuses=[...new Set(all.map(r=>mget(r,'status')).filter(Boolean))];
+ const cages=new Set(all.map(r=>mget(r,'cage')).filter(Boolean)),statuses=[...new Set([...MSTATUS,...all.map(r=>mget(r,'status')).filter(Boolean)])];
  let h=`<div class="crumb">KPC mouse${canEdit()?' · <span style="color:var(--acc)">행을 누르면 수정할 수 있어요</span>':''}</div><div class="stats">
   <div class="stat"><b>${all.length}</b><span>전체 개체</span></div><div class="stat"><b>${live.length}</b><span>Live</span></div>
   <div class="stat"><b>${all.filter(r=>mget(r,'sex')==='M').length} / ${all.filter(r=>mget(r,'sex')==='F').length}</b><span>♂ / ♀</span></div>
   <div class="stat"><b>${cages.size}</b><span>Cage</span></div>
-  ${statuses.filter(s=>!/live/i.test(s)).map(s=>`<div class="stat"><b>${all.filter(r=>mget(r,'status')===s).length}</b><span>${esc(s)}</span></div>`).join('')}
+  ${statuses.filter(s=>!/live/i.test(s)&&all.some(r=>mget(r,'status')===s)).map(s=>`<div class="stat"><b>${all.filter(r=>mget(r,'status')===s).length}</b><span>${esc(s)}</span></div>`).join('')}
   ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
  h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
   <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option${s===mst.status?' selected':''}>${esc(s)}</option>`).join('')}</select>
@@ -496,47 +501,87 @@ main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
  else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
  else if(t.dataset.mc){const c=t.dataset.mc;mst.custom=Object.keys(MCOL).filter(k=>k===c?t.checked:mst.custom.includes(k));LS.set('mcustom',JSON.stringify(mst.custom));renderMouse()}});
 // next free number: sequential, skipping any number that contains the digit 9
-function nextMouseId(){const ns=MOUSE.rows.map(r=>+(mget(r,'id').match(/(\d+)$/)||[])[1]||0);let n=Math.max(0,...ns)+1;while(/9/.test(String(n)))n++;return'KPC-'+String(n).padStart(3,'0')}
-let curM=null;
-function openMouse(id,edit){const r=id?MOUSE.rows.find(x=>mget(x,'id')===id):null;curM=id;cur=null;
- const vals=r?r.slice():MOUSE.cols.map(c=>c==='id'?nextMouseId():c==='status'?'Live':'');
- const editable=edit&&canEdit(),tc=toe(vals[MOUSE.cols.indexOf('id')]);
+const MSTATUS=['Live','Breeding','Planning','Used','Dead','Sacrificed'];
+const idNum=id=>{const m=/^KPC-(\d+)$/.exec(id);return m?+m[1]:null};
+function nextIds(start,n){const used=new Set(MOUSE.rows.map(r=>mget(r,'id')));let k=idNum(start);if(k===null)return n===1?[start]:null;
+ const out=[];while(out.length<n){const id='KPC-'+String(k).padStart(3,'0');if(!/9/.test(String(k))&&!used.has(id))out.push(id);k++}return out}
+function nextMouseId(){const ns=MOUSE.rows.map(r=>idNum(mget(r,'id'))||0);return nextIds('KPC-'+String(Math.max(0,...ns)+1).padStart(3,'0'),1)[0]}
+// generation like the original Excel: MAX(mother's gen, father's gen)+1 (unknown parent = 0); founders keep the typed value
+function genOf(id,seen=new Set()){const r=MOUSE.rows.find(x=>mget(x,'id')===id);if(!r||seen.has(id))return 0;seen.add(id);
+ const m=mget(r,'mother'),f=mget(r,'father');if(!m&&!f)return +mget(r,'generation')||0;return Math.max(genOf(m,new Set(seen)),genOf(f,new Set(seen)))+1}
+const genFrom=(m,f)=>m||f?Math.max(m?genOf(m):0,f?genOf(f):0)+1:null;
+const genDisp=r=>{const g=genFrom(mget(r,'mother'),mget(r,'father'));return g===null?mget(r,'generation'):String(g)};
+// parent choices: Breeding mice of the right sex (+ the current value so old records stay editable)
+function parentOpts(sex,cur,self){const list=MOUSE.rows.filter(r=>mget(r,'status')==='Breeding'&&mget(r,'sex').toUpperCase()===sex&&mget(r,'id')!==self).map(r=>mget(r,'id'));
+ let o=`<option value="">— 선택 안 함 —</option>`+list.map(id=>`<option${id===cur?' selected':''}>${esc(id)}</option>`).join('');
+ if(cur&&!list.includes(cur))o+=`<option value="${esc(cur)}" selected>${esc(cur)} (현재값 · Breeding 아님)</option>`;
+ if(!list.length)o+=`<option value="" disabled>Breeding ${sex==='F'?'암컷':'수컷'}이 없습니다</option>`;return o}
+let curM=null,copyM=null;
+function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(x,'id')===copyFrom):null;
+ const r=id?MOUSE.rows.find(x=>mget(x,'id')===id):null;curM=id;copyM=copyFrom||null;cur=null;
+ const C=c=>MOUSE.cols.indexOf(c);
+ const vals=r?r.slice():src?src.map((v,i)=>{const c=MOUSE.cols[i];return c==='id'?nextMouseId():['genotyping_date','mark','note'].includes(c)?'':v})
+  :MOUSE.cols.map(c=>c==='id'?nextMouseId():c==='status'?'Live':'');
+ const editable=edit&&canEdit(),tc=toe(vals[C('id')]),isNew=!r;
  $('dmsg').textContent='';$('dmsg').className='msg';
- $('dpos').textContent=`KPC mouse · ${vals[MOUSE.cols.indexOf('cage')]||'cage 미지정'}`;$('dttl').textContent=r?vals[MOUSE.cols.indexOf('id')]:'새 마우스';
+ $('dpos').textContent=`KPC mouse · ${vals[C('cage')]||'cage 미지정'}`;$('dttl').textContent=r?vals[C('id')]:src?`새 마우스 (${copyFrom} 복사)`:'새 마우스';
  const lbl=c=>MGENE[c]?`<i title="${MGENE[c][1].replace(/<\/?sup>/g,'')}">${MGENE[c][0]}</i>`:esc(MCOL[c]||c);
+ const g=genFrom(vals[C('mother')],vals[C('father')]);
  let dl=MOUSE.cols.map((c,i)=>{const v=vals[i];
   if(editable){
-   // fixed choices -> toggle buttons (click again to clear); dates -> calendar
+   // fixed choices -> toggle buttons (click again to clear); dates -> calendar; status/parents -> dropdown
    if(MCHOICE[c])return`<dt>${lbl(c)}</dt><dd><input type="hidden" data-mi="${i}" value="${esc(v)}"><span class="pick" data-for="${i}">${MCHOICE[c].map(o=>`<button type="button" data-v="${esc(o)}" class="${o===v?'on':''}${c==='sex'?' s'+o.toLowerCase():''}${c==='kras'&&o==='+/-'?' kp':''}">${c==='sex'?(o==='M'?'♂ M':'♀ F'):esc(o)}</button>`).join('')}</span></dd>`;
    if(MDATE.includes(c))return`<dt>${lbl(c)}</dt><dd><input type="date" data-mi="${i}" value="${esc(v)}"></dd>`;
-   return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" value="${esc(v)}"${!r&&c==='cage'?' autofocus':''}></dd>`}
+   if(c==='status')return`<dt>${lbl(c)}</dt><dd><select data-mi="${i}">${MSTATUS.map(s=>`<option${s===v?' selected':''}>${s}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}</select></dd>`;
+   if(c==='mother'||c==='father')return`<dt>${lbl(c)}</dt><dd><select data-mi="${i}" data-par="1">${parentOpts(c==='mother'?'F':'M',v,r?vals[C('id')]:'')}</select></dd>`;
+   if(c==='generation')return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" id="m_gen" value="${esc(g===null?v:g)}"${g===null?'':' readonly'}><div class="hint" id="m_genh">${g===null?'부모가 없는 개체(처음 들여온 개체)만 직접 입력':'부모 세대로 자동 계산: MAX(모, 부) + 1'}</div></dd>`;
+   if(c==='id'&&isNew)return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" value="${esc(v)}"><div class="cnt2">마리 수 <input type="number" id="m_count" min="1" max="20" value="1"> <span class="hint" id="m_counth"></span></div></dd>`;
+   return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" value="${esc(v)}"${isNew&&c==='cage'&&!src?' autofocus':''}></dd>`}
   if(c==='sex'&&/^[mf]$/i.test(v))return`<dt>${lbl(c)}</dt><dd><span class="sxb ${v.toLowerCase()}">${v.toUpperCase()==='M'?'♂ M':'♀ F'}</span></dd>`;
   if(c==='kras'&&v==='+/-')return`<dt>${lbl(c)}</dt><dd><span class="kh">${esc(v)}</span></dd>`;
+  if(c==='generation'&&r){const gd=genDisp(r);return`<dt>${lbl(c)}</dt><dd class="${gd?'':'na'}">${gd||'—'}</dd>`}
   return`<dt>${lbl(c)}</dt><dd class="${v?'':'na'}">${v?esc(v):'—'}</dd>`}).join('');
- const dob=vals[MOUSE.cols.indexOf('dob')];
+ const dob=vals[C('dob')];
  dl+=`<dt>주령</dt><dd class="${ageW(dob)===''?'na':''}">${ageW(dob)===''?'—':ageW(dob)+'주'}</dd>`;
- if(tc)dl+=`<dt>발가락</dt><dd>${tc.txt}${tc.bad?' <span style="color:var(--bad)">(9가 들어간 번호)</span>':''} <button class="btn sm" id="m_toe2">그림</button></dd>`;
+ if(tc&&!isNew)dl+=`<dt>발가락</dt><dd>${tc.txt}${tc.bad?' <span style="color:var(--bad)">(9가 들어간 번호)</span>':''} <button class="btn sm" id="m_toe2">그림</button></dd>`;
  if(r){const kids=MOUSE.rows.filter(x=>mget(x,'mother')===id||mget(x,'father')===id).map(x=>mget(x,'id'));if(kids.length)dl+=`<dt>자손</dt><dd>${kids.length}마리 (${kids.slice(0,8).join(', ')}${kids.length>8?' …':''})</dd>`}
  $('ddl').innerHTML=dl;
- $('dacts').innerHTML=editable?`<button class="btn pri" id="m_save">저장</button><button class="btn" id="m_cancel">취소</button>${r?'<button class="btn del" id="m_del" style="margin-left:auto">삭제</button>':''}`
-  :canEdit()?`<button class="btn pri" id="m_edit">수정</button><button class="btn del" id="m_del" style="margin-left:auto">삭제</button>`:`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
- det.classList.add('open');const f=det.querySelector('input[autofocus]')||det.querySelector('input');if(f&&editable)f.focus()}
+ const delB='<button class="btn del" id="m_del" style="margin-left:auto">삭제</button>';
+ $('dacts').innerHTML=editable?`<button class="btn pri" id="m_save">저장</button><button class="btn" id="m_cancel">취소</button>${r?delB:''}`
+  :canEdit()?`<button class="btn pri" id="m_edit">수정</button><button class="btn" id="m_copy">복사</button>${delB}`:`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
+ det.classList.add('open');if(editable){updCount();const f=det.querySelector('input[autofocus]');if(f)f.focus()}}
+function updCount(){const c=$('m_count'),h=$('m_counth');if(!c||!h)return;const n=+c.value||1,first=det.querySelector(`input[data-mi="${MOUSE.cols.indexOf('id')}"]`).value.trim();
+ const ids=nextIds(first,n);h.textContent=n<2?'':ids?`${ids[0]} ~ ${ids[ids.length-1]} (9 포함·기존 번호 건너뜀)`:'여러 마리는 KPC-숫자 형식 번호에서만 가능';}
 $('dacts').addEventListener('click',async e=>{const id=e.target.id;if(!id.startsWith('m_'))return;e.stopImmediatePropagation();
- if(id==='m_edit')return openMouse(curM,true);if(id==='m_cancel')return curM?openMouse(curM,false):closeDet();
+ if(id==='m_edit')return openMouse(curM,true);if(id==='m_copy')return openMouse(null,true,curM);
+ if(id==='m_cancel')return curM?openMouse(curM,false):copyM?openMouse(copyM,false):closeDet();
  if(id==='m_del'){if(!confirm(`${curM}을(를) 목록에서 삭제할까요?\n(죽거나 희생한 개체는 삭제 대신 Status를 바꾸는 걸 권장합니다)`))return;
   const ok=await saveFile(MOUSE,rows=>rows.filter((r,i)=>i===0||r[1]!==curM),`마우스 ${curM} 삭제`);if(ok)closeDet();return}
- if(id==='m_save'){const nv=MOUSE.cols.map(()=>'');det.querySelectorAll('input[data-mi]').forEach(inp=>nv[+inp.dataset.mi]=inp.value.trim());
-  const iid=MOUSE.cols.indexOf('id'),nid=nv[iid];if(!nid)return toast('번호를 입력하세요.',false);
-  if(nid!==curM&&MOUSE.rows.some(r=>mget(r,'id')===nid))return toast(`${nid}은(는) 이미 있는 번호입니다.`,false);
-  const bad=MDATE.find(c=>{const v=nv[MOUSE.cols.indexOf(c)];return v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)});if(bad)return toast(`${MCOL[bad]}는 YYYY-MM-DD 형식으로 입력하세요.`,false);
-  const old=curM,ok=await saveFile(MOUSE,(rows,hdr)=>{const row=hdr.map(c=>nv[MOUSE.cols.indexOf(c)]??'');
-   if(old){const i=rows.findIndex((r,k)=>k>0&&r[1]===old);if(i<0)throw new Error(old+'을(를) 찾을 수 없습니다');rows[i]=row}
-   else{if(rows.some((r,k)=>k>0&&r[1]===nid))throw new Error(nid+'은(는) 이미 있습니다');rows.push(row)}return rows},`마우스 ${nid} ${old?'수정':'추가'}`);
-  if(ok){curM=nid;openMouse(nid,false)}}
+ if(id==='m_save'){const C=c=>MOUSE.cols.indexOf(c),nv=MOUSE.cols.map(()=>'');
+  det.querySelectorAll('[data-mi]').forEach(inp=>nv[+inp.dataset.mi]=inp.value.trim());
+  const g=genFrom(nv[C('mother')],nv[C('father')]);if(g!==null)nv[C('generation')]=String(g);
+  const nid=nv[C('id')];if(!nid)return toast('번호를 입력하세요.',false);
+  const bad=MDATE.find(c=>{const v=nv[C(c)];return v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)});if(bad)return toast(`${MCOL[bad]}는 YYYY-MM-DD 형식으로 입력하세요.`,false);
+  const old=curM;
+  if(old){if(nid!==old&&MOUSE.rows.some(r=>mget(r,'id')===nid))return toast(`${nid}은(는) 이미 있는 번호입니다.`,false);
+   const ok=await saveFile(MOUSE,(rows,hdr)=>{const i=rows.findIndex((r,k)=>k>0&&r[1]===old);if(i<0)throw new Error(old+'을(를) 찾을 수 없습니다');
+    rows[i]=hdr.map(c=>nv[C(c)]??'');return rows},`마우스 ${nid} 수정`);if(ok)openMouse(nid,false);return}
+  // new (or copied): n consecutive free numbers starting at the typed one
+  const n=Math.min(20,Math.max(1,+($('m_count')||{}).value||1)),ids=nextIds(nid,n);
+  if(!ids)return toast('여러 마리는 KPC-숫자 형식 번호에서만 만들 수 있어요.',false);
+  if(n===1&&MOUSE.rows.some(r=>mget(r,'id')===nid))return toast(`${nid}은(는) 이미 있는 번호입니다.`,false);
+  const ok=await saveFile(MOUSE,(rows,hdr)=>{const have=new Set(rows.slice(1).map(r=>r[1]));
+   for(const x of ids){if(have.has(x))throw new Error(x+'은(는) 이미 있습니다');rows.push(hdr.map(c=>c==='id'?x:(nv[C(c)]??'')))}return rows},
+   n>1?`마우스 ${ids[0]}~${ids[n-1]} 추가 (${n}마리${copyM?', '+copyM+' 복사':''})`:`마우스 ${ids[0]} 추가${copyM?' ('+copyM+' 복사)':''}`);
+  if(ok)openMouse(ids[0],false)}
  },true);
 $('ddl').addEventListener('click',e=>{if(e.target.id==='m_toe2')return $('toed').showModal();
  const b=e.target.closest('.pick button');if(!b)return;const p=b.parentElement,inp=p.previousElementSibling,on=!b.classList.contains('on');
  p.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(on)b.classList.add('on');inp.value=on?b.dataset.v:''});
+$('ddl').addEventListener('change',e=>{if(e.target.dataset.par){const C=c=>MOUSE.cols.indexOf(c);
+  const m=det.querySelector(`[data-mi="${C('mother')}"]`).value,f=det.querySelector(`[data-mi="${C('father')}"]`).value,g=genFrom(m,f),gi=$('m_gen');
+  if(gi){if(g===null){gi.readOnly=false;$('m_genh').textContent='부모가 없는 개체(처음 들여온 개체)만 직접 입력'}else{gi.value=g;gi.readOnly=true;$('m_genh').textContent='부모 세대로 자동 계산: MAX(모, 부) + 1'}}}});
+$('ddl').addEventListener('input',e=>{if(e.target.id==='m_count'||+e.target.dataset.mi===MOUSE.cols.indexOf('id'))updCount()});
 
 // ---------- settings dialog ----------
 const setd=$('setd');
