@@ -4,9 +4,9 @@
 <title>실험실 재고 현황</title>
 <style>
 :root{--bg:#f6f7f9;--panel:#fff;--ink:#1d2330;--mute:#6b7280;--line:#e3e6eb;--acc:#2563eb;--empty:#f1f3f6;--hit:#f59e0b;--ok:#16a34a;--bad:#dc2626;
---k-mouse:#64748b;--pick:#4b5563;--pick-bg:#e5e7eb;--sx-m:#D9E1F2;--sx-mt:#1e3a8a;--sx-f:#F5DDE4;--sx-ft:#9d174d;--kh:#fde68a;--kh-t:#92400e;--occ-lo:#22c55e;--occ-mid:#f59e0b;--occ-hi:#ef4444;
+--k-mouse:#64748b;--pick:#a3aab5;--pick-bg:#eceef1;--sx-m:#D9E1F2;--sx-mt:#1e3a8a;--sx-f:#F5DDE4;--sx-ft:#9d174d;--kh:#fde68a;--kh-t:#92400e;--occ-lo:#22c55e;--occ-mid:#f59e0b;--occ-hi:#ef4444;
 --c-cell:#dbeafe;--c-bact:#dcfce7;--c-reag:#fef3c7;--c-si:#fce7f3;--k-cell:#2563eb;--k-bact:#16a34a;--k-reag:#d97706;--k-si:#db2777}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--panel:#1a1e24;--ink:#e6e9ee;--mute:#9aa3af;--line:#2c323b;--empty:#20252c;--pick:#9ca3af;--pick-bg:#2c323b;--sx-m:#1e3a5f;--sx-mt:#bfdbfe;--sx-f:#5a2340;--sx-ft:#fbcfe8;--kh:#5a4614;--kh-t:#fde68a;
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111418;--panel:#1a1e24;--ink:#e6e9ee;--mute:#9aa3af;--line:#2c323b;--empty:#20252c;--pick:#6b7280;--pick-bg:#262b33;--sx-m:#1e3a5f;--sx-mt:#bfdbfe;--sx-f:#5a2340;--sx-ft:#fbcfe8;--kh:#5a4614;--kh-t:#fde68a;
 --c-cell:#1e3a5f;--c-bact:#1f4a32;--c-reag:#5a4614;--c-si:#5a2340}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 "Segoe UI","Malgun Gothic",system-ui,sans-serif}
 header{padding:28px 28px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -53,9 +53,9 @@ main{padding:20px;overflow:auto;min-width:0}
 .slot.hit{outline:2px solid var(--hit)}.slot.dim{opacity:.25}
 .slot .c{font-size:10px}.slot .s{display:flex;flex-direction:column;line-height:1.2}.slot .mg2{font-weight:600;color:var(--ink);opacity:.75}
 /* selected (details open): only that slot / row changes, in gray */
-.slot.picked,.slot.picked:hover{outline:3px solid var(--pick);outline-offset:-3px;box-shadow:0 3px 10px #0003;position:relative;z-index:1}
+.slot.picked,.slot.picked:hover{outline:2px solid var(--pick);outline-offset:-2px;box-shadow:0 2px 6px #0001;position:relative;z-index:1}
 tr.picked td,.mt tr.picked:hover td{background:var(--pick-bg)}
-tr.picked td:first-child{box-shadow:inset 4px 0 0 var(--pick)}
+tr.picked td:first-child{box-shadow:inset 3px 0 0 var(--pick)}
 .mt tr.picked td.sx.m{background:var(--sx-m)}.mt tr.picked td.sx.f{background:var(--sx-f)}
 .slot.mg{justify-content:center;align-items:center;text-align:center;font-size:12px}.slot.mg .s{margin-top:0}
 .grid.ed{user-select:none}
