@@ -481,7 +481,7 @@ function renderMouse(){
   ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
  h+=`<div class="ana one">${histCard()}</div>`;  // same place and look as the freezer page's history card
  h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
-  <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option${s===mst.status?' selected':''}>${esc(s)}</option>`).join('')}</select>
+  <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option value="${esc(s)}"${s===mst.status?' selected':''}>${esc(stLabel(s))}</option>`).join('')}</select>
   <select id="m_sex"><option value="">성별 전체</option><option value="M"${mst.sex==='M'?' selected':''}>♂ M</option><option value="F"${mst.sex==='F'?' selected':''}>♀ F</option></select>
   <label class="chk"><input type="checkbox" id="m_group"${mst.group?' checked':''}> Cage별 묶기</label>
   <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="m_toe">🐭 발가락 표시</button>${canEdit()?'<button class="btn sm pri" id="m_add">＋ 마우스 추가</button>':''}</span></div>`;
@@ -509,7 +509,10 @@ main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
  else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
  else if(t.dataset.mc){const c=t.dataset.mc;mst.custom=Object.keys(MCOL).filter(k=>k===c?t.checked:mst.custom.includes(k));LS.set('mcustom',JSON.stringify(mst.custom));renderMouse()}});
 // next free number: sequential, skipping any number that contains the digit 9
-const MSTATUS=['Live','Breeding','Planning','Used','Dead','Sacrificed'];
+const MSTATUS=['Live','Breeding','Retired','Planning','Used','Dead','Sacrificed'];
+// stored value stays English; dropdowns show a Korean description next to it
+const MSTATUS_KO={Live:'사육 중',Breeding:'교배 중',Retired:'교배 종료 · 분리',Planning:'실험 배정 예정',Used:'실험 사용',Dead:'폐사',Sacrificed:'희생'};
+const stLabel=s=>MSTATUS_KO[s]?`${s} — ${MSTATUS_KO[s]}`:s;
 const idNum=id=>{const m=/^KPC-(\d+)$/.exec(id);return m?+m[1]:null};
 function nextIds(start,n){const used=new Set(MOUSE.rows.map(r=>mget(r,'id')));let k=idNum(start);if(k===null)return n===1?[start]:null;
  const out=[];while(out.length<n){const id='KPC-'+String(k).padStart(3,'0');if(!/9/.test(String(k))&&!used.has(id))out.push(id);k++}return out}
@@ -519,11 +522,14 @@ function genOf(id,seen=new Set()){const r=MOUSE.rows.find(x=>mget(x,'id')===id);
  const m=mget(r,'mother'),f=mget(r,'father');if(!m&&!f)return +mget(r,'generation')||0;return Math.max(genOf(m,new Set(seen)),genOf(f,new Set(seen)))+1}
 const genFrom=(m,f)=>m||f?Math.max(m?genOf(m):0,f?genOf(f):0)+1:null;
 const genDisp=r=>{const g=genFrom(mget(r,'mother'),mget(r,'father'));return g===null?mget(r,'generation'):String(g)};
-// parent choices: Breeding mice of the right sex (+ the current value so old records stay editable)
-function parentOpts(sex,cur,self){const list=MOUSE.rows.filter(r=>mget(r,'status')==='Breeding'&&mget(r,'sex').toUpperCase()===sex&&mget(r,'id')!==self).map(r=>mget(r,'id'));
- let o=`<option value="">— 선택 안 함 —</option>`+list.map(id=>`<option${id===cur?' selected':''}>${esc(id)}</option>`).join('');
- if(cur&&!list.includes(cur))o+=`<option value="${esc(cur)}" selected>${esc(cur)} (현재값 · Breeding 아님)</option>`;
- if(!list.length)o+=`<option value="" disabled>Breeding ${sex==='F'?'암컷':'수컷'}이 없습니다</option>`;return o}
+// parent choices: mice in Breeding, then Retired (bred before and separated), of the right sex (+ the current value so old records stay editable)
+function parentOpts(sex,cur,self){const pick=st=>MOUSE.rows.filter(r=>mget(r,'status')===st&&mget(r,'sex').toUpperCase()===sex&&mget(r,'id')!==self).map(r=>mget(r,'id'));
+ const opt=id=>`<option${id===cur?' selected':''}>${esc(id)}</option>`,br=pick('Breeding'),rt=pick('Retired');
+ let o=`<option value="">— 선택 안 함 —</option>`;
+ if(br.length)o+=`<optgroup label="교배 중 (Breeding)">${br.map(opt).join('')}</optgroup>`;
+ if(rt.length)o+=`<optgroup label="교배 종료 (Retired)">${rt.map(opt).join('')}</optgroup>`;
+ if(cur&&!br.includes(cur)&&!rt.includes(cur))o+=`<option value="${esc(cur)}" selected>${esc(cur)} (현재값 · Breeding/Retired 아님)</option>`;
+ if(!br.length&&!rt.length)o+=`<option value="" disabled>Breeding/Retired ${sex==='F'?'암컷':'수컷'}이 없습니다</option>`;return o}
 let curM=null,copyM=null;
 function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(x,'id')===copyFrom):null;
  const r=id?MOUSE.rows.find(x=>mget(x,'id')===id):null;curM=id;copyM=copyFrom||null;cur=null;
@@ -540,7 +546,7 @@ function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(
    // fixed choices -> toggle buttons (click again to clear); dates -> calendar; status/parents -> dropdown
    if(MCHOICE[c])return`<dt>${lbl(c)}</dt><dd><input type="hidden" data-mi="${i}" value="${esc(v)}"><span class="pick" data-for="${i}">${MCHOICE[c].map(o=>`<button type="button" data-v="${esc(o)}" class="${o===v?'on':''}${c==='sex'?' s'+o.toLowerCase():''}${c==='kras'&&o==='+/-'?' kp':''}">${c==='sex'?(o==='M'?'♂ M':'♀ F'):esc(o)}</button>`).join('')}</span></dd>`;
    if(MDATE.includes(c))return`<dt>${lbl(c)}</dt><dd><input type="date" data-mi="${i}" value="${esc(v)}"></dd>`;
-   if(c==='status')return`<dt>${lbl(c)}</dt><dd><select data-mi="${i}">${MSTATUS.map(s=>`<option${s===v?' selected':''}>${s}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}</select></dd>`;
+   if(c==='status')return`<dt>${lbl(c)}</dt><dd><select data-mi="${i}">${MSTATUS.map(s=>`<option value="${s}"${s===v?' selected':''}>${stLabel(s)}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}</select></dd>`;
    if(c==='mother'||c==='father')return`<dt>${lbl(c)}</dt><dd><select data-mi="${i}" data-par="1">${parentOpts(c==='mother'?'F':'M',v,r?vals[C('id')]:'')}</select></dd>`;
    if(c==='generation')return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" id="m_gen" value="${esc(g===null?v:g)}"${g===null?'':' readonly'}><div class="hint" id="m_genh">${g===null?'부모가 없는 개체(처음 들여온 개체)만 직접 입력':'부모 세대로 자동 계산: MAX(모, 부) + 1'}</div></dd>`;
    if(c==='id'&&isNew)return`<dt>${lbl(c)}</dt><dd><input data-mi="${i}" value="${esc(v)}"><div class="cnt2">마리 수 <input type="number" id="m_count" min="1" max="20" value="1"> <span class="hint" id="m_counth"></span></div></dd>`;
