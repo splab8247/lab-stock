@@ -266,14 +266,19 @@ let toastT;function toast(t,ok=true){const el=$('toast');el.textContent=t;el.cla
 
 // ---------- detail / edit ----------
 const det=$('det');let cur=null;
-const closeDet=()=>{det.classList.remove('open');cur=null;curM=null;markSel()};
+// edit mode follows you: while a form is open, clicking another slot / mouse opens it in edit mode too (after confirming unsaved changes)
+let detEdit=false,detSnap='';
+const formSnap=()=>[...det.querySelectorAll('[data-i],[data-mi],#m_count')].map(e=>e.value).join('\u0001');
+const leaveOK=()=>!detEdit||!det.classList.contains('open')||formSnap()===detSnap||confirm('저장하지 않은 변경 내용이 있어요. 버리고 이동할까요?');
+const closeDet=()=>{det.classList.remove('open');cur=null;curM=null;detEdit=false;markSel()};
 // gray mark on the slot / mouse row whose details are open (only that one changes)
 function markSel(){main.querySelectorAll('.picked').forEach(e=>e.classList.remove('picked'));if(!det.classList.contains('open'))return;
  let el=null;if(cur)el=main.querySelector(`[data-id="${sid(cur)}"]`);else if(curM)el=main.querySelector(`tr[data-mid="${CSS.escape(curM)}"]`);if(el)el.classList.add('picked')}
 $('dx').onclick=closeDet;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('setd').open){closeDet();hideBar()}});
 let justDragged=false;
 main.addEventListener('click',e=>{if(justDragged)return;const el=e.target.closest('[data-id]');if(!el)return;const [k,ri]=el.dataset.id.split('|');const sh=SHEETS.find(x=>x.key===k);
- const s=sh.boxes.flatMap(b=>b.slots).find(x=>x.ri==ri);openDet(s,!s.filled)});
+ const s=sh.boxes.flatMap(b=>b.slots).find(x=>x.ri==ri);if(cur&&sid(s)===sid(cur)&&det.classList.contains('open'))return;
+ const keep=detEdit&&det.classList.contains('open');if(!leaveOK())return;openDet(s,keep||!s.filled)});
 const DEL_BTN='<button class="btn del" id="d_clear" style="margin-left:auto">삭제</button>';
 const viewActs=s=>(s.filled?`<button class="btn pri" id="d_edit">수정</button>`:`<button class="btn pri" id="d_edit">입력</button>`)+(s.isAnchor?'<button class="btn" id="d_unmerge">병합 해제</button>':'')+(s.filled?DEL_BTN:'');
 function openDet(s,edit){cur=s;const sh=s.sh;$('dmsg').textContent='';$('dmsg').className='msg';
@@ -285,7 +290,7 @@ function openDet(s,edit){cur=s;const sh=s.sh;$('dmsg').textContent='';$('dmsg').
  if(editable)$('dacts').innerHTML=`<button class="btn pri" id="d_save">저장</button><button class="btn" id="d_cancel">취소</button>${s.isAnchor?'<button class="btn" id="d_unmerge">병합 해제</button>':''}${s.filled?DEL_BTN:''}`;
  else if(canEdit())$('dacts').innerHTML=viewActs(s);
  else $('dacts').innerHTML=`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
- det.classList.add('open');markSel();const f=det.querySelector('input[autofocus]');if(f)f.focus()}
+ det.classList.add('open');markSel();detEdit=editable;detSnap=editable?formSnap():'';const f=det.querySelector('input[autofocus]');if(f)f.focus()}
 const keyOf=(box,pos)=>box+'|'+pos;
 $('dacts').addEventListener('click',async e=>{if(!cur)return;const id=e.target.id,s=cur,sh=s.sh;
  if(id==='d_edit')openDet(s,true);else if(id==='d_cancel')openDet(s,false);
@@ -511,7 +516,8 @@ main.addEventListener('click',e=>{if(view.t!=='mouse')return;const t=e.target;
  const p=t.closest('[data-mp]');if(p){mst.preset=p.dataset.mp;LS.set('mpreset',mst.preset);if(mst.preset==='직접 선택'&&!mst.custom)mst.custom=MPRESET['기본'].slice();renderMouse();return}
  if(t.id==='m_toe')return $('toed').showModal();
  if(t.id==='m_add')return openMouse(null,true);
- const tr=t.closest('tr[data-mid]');if(tr)openMouse(tr.dataset.mid,false)});
+ const tr=t.closest('tr[data-mid]');if(!tr||(tr.dataset.mid===curM&&det.classList.contains('open')))return;
+ const keep=detEdit&&det.classList.contains('open');if(!leaveOK())return;openMouse(tr.dataset.mid,keep)});
 main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
  if(t.id==='m_status'){mst.status=t.value;renderMouse()}else if(t.id==='m_sex'){mst.sex=t.value;renderMouse()}
  else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
@@ -571,7 +577,7 @@ function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(
  const delB='<button class="btn del" id="m_del" style="margin-left:auto">삭제</button>';
  $('dacts').innerHTML=editable?`<button class="btn pri" id="m_save">저장</button><button class="btn" id="m_cancel">취소</button>${r?delB:''}`
   :canEdit()?`<button class="btn pri" id="m_edit">수정</button><button class="btn" id="m_copy">복사</button>${delB}`:`<span style="font-size:12px;color:var(--mute)">수정하려면 ⚙ 편집 설정에서 토큰을 입력하세요.</span>`;
- det.classList.add('open');markSel();if(editable){updCount();const f=det.querySelector('input[autofocus]');if(f)f.focus()}}
+ det.classList.add('open');markSel();detEdit=editable;detSnap=editable?formSnap():'';if(editable){updCount();const f=det.querySelector('input[autofocus]');if(f)f.focus()}}
 function updCount(){const c=$('m_count'),h=$('m_counth');if(!c||!h)return;const n=+c.value||1,first=det.querySelector(`input[data-mi="${MOUSE.cols.indexOf('id')}"]`).value.trim();
  const ids=nextIds(first,n);h.textContent=n<2?'':ids?`${ids[0]} ~ ${ids[ids.length-1]} (9 포함·기존 번호 건너뜀)`:'여러 마리는 KPC-숫자 형식 번호에서만 가능';}
 $('dacts').addEventListener('click',async e=>{const id=e.target.id;if(!id.startsWith('m_'))return;e.stopImmediatePropagation();
