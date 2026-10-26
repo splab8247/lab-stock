@@ -100,6 +100,7 @@ dialog.toed{width:520px}.toed img{display:block;width:100%;max-width:440px;margi
 .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer}.chip:hover{border-color:var(--acc);color:var(--acc)}
 .more{margin-top:6px;border:0;background:none;color:var(--acc);cursor:pointer;font-size:12px}
+.ana.one{grid-template-columns:1fr}
 @media(max-width:1000px){.ana{grid-template-columns:1fr}}
 .slot.sel{outline:2px dashed var(--acc);outline-offset:-2px;filter:brightness(.92)}
 #mbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,150%);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #0003;padding:10px 12px 10px 16px;display:flex;gap:10px;align-items:center;transition:transform .2s;z-index:6;font-size:14px}
@@ -306,7 +307,7 @@ async function saveFile(sh,mutate,what,focusKey){
    rows=mutate(rows,hdr);
    try{await gh('data/'+sh.file,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:BRANCH,sha:j.sha,
      message:`${what} (${cfg.name})`,content:b64e(toCSV(rows))})});
-    hist.unshift({sha:'',date:new Date().toISOString(),what,who:cfg.name});  // show own edit right away
+    hist.unshift({sha:'',date:new Date().toISOString(),what,who:cfg.name,kind:sh===MOUSE?'mouse':'stock'});  // show own edit right away
     (sh.build||build)(sh,toCSV(rows));render();toast('저장했습니다. 엑셀 파일은 1~2분 뒤 자동 갱신됩니다.');
     const ns=focusKey&&sh.boxes.flatMap(b=>b.slots).find(x=>keyOf(x.box,x.pos)===focusKey);
     if(ns&&det.classList.contains('open')){openDet(ns,false);$('dmsg').className='msg ok';$('dmsg').textContent='저장했습니다.'}
@@ -397,31 +398,37 @@ function barCard(kind,title,extra,sh,slots,keyOf){
  if(items.length>15)h+=`<button class="more" data-more="${kind}">${ana.all[kind]?'접기':`나머지 ${items.length-15}개 더 보기`}</button>`;
  if(!items.length)h+='<div class="mute" style="padding:20px">데이터 없음</div>';
  return h+'</div></div>'}
-function renderAna(){const el=$('ana');if(!el)return;const sh=anaSheet(),slots=anaSlots(sh);
+function renderAna(){const el=$('ana');if(!el||view.t==='mouse')return;const sh=anaSheet(),slots=anaSlots(sh);
  const sel=view.t==='all'?`<select id="a_sheet">${SHEETS.map(s=>`<option value="${s.key}"${s.key===sh.key?' selected':''}>${s.label}</option>`).join('')}</select>`:`<span class="tag">${sh.label}</span>`;
  el.innerHTML=barCard('item',`${esc(sh.p)} 별 개수`,sel,sh,slots,s=>s.prim.trim())
   +histCard()}
 
 // ---------- recent edits (history.json built by Actions; live from the API when a token is set) ----------
+// kept as one list; each item has kind 'stock' or 'mouse' so the freezer page and the mouse page show their own edits
 let hist=[],histLive=false;
+const kindOf=what=>/^마우스 /.test(what)?'mouse':'stock';
 async function loadHist(){histLive=false;
  if(canEdit()){try{const r=await fetch(`https://api.github.com/repos/${cfg.repo}/commits?path=data&sha=${BRANCH}&per_page=100`,{headers:{'Authorization':'Bearer '+cfg.tok}});
-  if(r.ok){hist=(await r.json()).map(c=>{const m=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(c.commit.message.split('\n')[0]);return m&&{sha:c.sha,date:c.commit.committer.date,what:m[1],who:m[2]}}).filter(Boolean).slice(0,50);histLive=true;return}}catch(e){}}
- try{const r=await fetch('history.json?t='+Date.now());hist=r.ok?await r.json():[]}catch(e){hist=[]}}
+  if(r.ok){hist=(await r.json()).filter(c=>!c.commit.message.includes('Co-Authored-By: Claude')).map(c=>{const m=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(c.commit.message.split('\n')[0]);return m&&{sha:c.sha,date:c.commit.committer.date,what:m[1],who:m[2],kind:kindOf(m[1])}}).filter(Boolean);histLive=true;return}}catch(e){}}
+ try{const r=await fetch('history.json?t='+Date.now());const j=r.ok?await r.json():[];
+  // new format {stock:[...],mouse:[...]}; old format is a plain array
+  hist=Array.isArray(j)?j.map(x=>({...x,kind:kindOf(x.what)})):[...(j.stock||[]).map(x=>({...x,kind:'stock'})),...(j.mouse||[]).map(x=>({...x,kind:'mouse'}))].sort((a,b)=>b.date.localeCompare(a.date))}catch(e){hist=[]}}
 function ago(d){const s=(Date.now()-new Date(d))/1000;if(s<60)return'방금';if(s<3600)return`${Math.floor(s/60)}분 전`;if(s<86400)return`${Math.floor(s/3600)}시간 전`;if(s<86400*7)return`${Math.floor(s/86400)}일 전`;return new Date(d).toLocaleDateString('ko-KR')}
 const histBox=h=>h.what.replace(/^박스 (추가|삭제|이름 변경) /,'').split(/\s/)[0];
-function histCard(){
- const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist;
+function histList(){if(view.t==='mouse')return hist.filter(h=>h.kind==='mouse').slice(0,50);
+ const s=hist.filter(h=>h.kind!=='mouse');return(view.t==='box'?s.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):s).slice(0,50)}
+function histCard(){const list=histList(),isM=view.t==='mouse';
  const top=ana.all.hist?list:list.slice(0,12);
  // no link to github.com: its commit pages rate-limit anonymous visitors (429) on the shared lab IP
- let h=`<div class="card" id="histcard"><div class="ch"><b>최근 변경 기록</b><span class="mute">최근 ${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${list.length>12?`<button class="more" style="margin:0 0 0 auto" data-more="hist">${ana.all.hist?'접기':'더보기'}</button>`:''}</div><div class="hist${ana.all.hist?' open':''}">`;
+ let h=`<div class="card" id="histcard"><div class="ch"><b>최근 변경 기록${isM?' (마우스)':''}</b><span class="mute">최근 ${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${list.length>12?`<button class="more" style="margin:0 0 0 auto" data-more="hist">${ana.all.hist?'접기':'더보기'}</button>`:''}</div><div class="hist${ana.all.hist?' open':''}">`;
  top.forEach((x,i)=>{const verb=(x.what.match(/(병합 해제|병합|삭제|추가|수정|이름 변경)/)||[''])[0];
-  h+=`<div class="hi" data-hist="${i}" title="${esc(new Date(x.date).toLocaleString('ko-KR'))}"><span class="hv v-${verb.replace(' ','')}">${esc(verb||'변경')}</span><span class="hw">${esc(x.what.replace(verb,'').trim())}</span><span class="hm">${esc(x.who)} · ${ago(x.date)}</span></div>`});
+  const w=x.what.replace(/^마우스 /,'').replace(verb,'').replace('~',' ~ ').replace(/\s+/g,' ').trim();
+  h+=`<div class="hi" data-hist="${i}" title="${esc(new Date(x.date).toLocaleString('ko-KR'))}"><span class="hv v-${verb.replace(' ','')}">${esc(verb||'변경')}</span><span class="hw">${esc(w)}</span><span class="hm">${esc(x.who)} · ${ago(x.date)}</span></div>`});
  if(!list.length)h+=`<div class="mute" style="padding:20px">${view.t==='box'?'이 박스의 변경 기록이 없습니다':'아직 사이트에서 저장한 기록이 없습니다'}</div>`;
  return h+'</div></div>'}
 main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
- const list=view.t==='box'?hist.filter(h=>histBox(h)===view.b||h.what.includes('→ '+view.b)):hist,x=list[+it.dataset.hist];
- const mm=/^마우스 ([^\s~]+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';view={t:'mouse'};render();if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
+ const x=histList()[+it.dataset.hist];if(!x)return;
+ const mm=/^마우스 ([^\s~]+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';if(view.t!=='mouse'){view={t:'mouse'};render()}if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
  const nb=(x.what.match(/→ (\S+)$/)||[])[1]||histBox(x);const b=ALL().find(b=>b.name===nb);
  if(!b)return toast(`'${nb}' 박스는 지금 없습니다 (삭제되었거나 이름이 바뀜).`,false);
  hl=null;term='';$('q').value='';view={t:'box',g:b.sh.key,b:b.name};render();main.scrollTop=0;
@@ -434,7 +441,7 @@ main.addEventListener('click',e=>{const t=e.target;
   else{hl={kind,key,box:bx,prev:hl?hl.prev:view};view={t:'box',g:k,b:bx};term='';$('q').value=''}
   render();main.scrollTop=0;return}
  if(t.closest('#hlx')){view=hl.prev;hl=null;render();return}
- const more=t.closest('[data-more]');if(more){ana.all[more.dataset.more]=!ana.all[more.dataset.more];renderAna()}});
+ const more=t.closest('[data-more]');if(more){ana.all[more.dataset.more]=!ana.all[more.dataset.more];view.t==='mouse'?renderMouse():renderAna()}});
 main.addEventListener('change',e=>{if(e.target.id==='a_sheet'){ana.sheet=e.target.value;ana.open={item:null,mgr:null};renderAna()}});
 
 // ---------- mouse colony (data/mice.csv: one master table, shown through column presets) ----------
@@ -472,6 +479,7 @@ function renderMouse(){
   <div class="stat"><b>${cages.size}</b><span>Cage</span></div>
   ${statuses.filter(s=>!/live/i.test(s)&&all.some(r=>mget(r,'status')===s)).map(s=>`<div class="stat"><b>${all.filter(r=>mget(r,'status')===s).length}</b><span>${esc(s)}</span></div>`).join('')}
   ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
+ h+=`<div class="ana one">${histCard()}</div>`;  // same place and look as the freezer page's history card
  h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
   <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option${s===mst.status?' selected':''}>${esc(s)}</option>`).join('')}</select>
   <select id="m_sex"><option value="">성별 전체</option><option value="M"${mst.sex==='M'?' selected':''}>♂ M</option><option value="F"${mst.sex==='F'?' selected':''}>♀ F</option></select>
@@ -589,7 +597,7 @@ $('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_
 $('s_cancel').onclick=()=>setd.close();
 $('s_ok').onclick=()=>{LS.set('name',$('s_name').value.trim());LS.set('tok',$('s_tok').value.trim());LS.set('repo',$('s_repo').value.trim());setd.close();init()};
 $('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.close();init()};
-$('histb').onclick=()=>{ana.all.hist=true;renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
+$('histb').onclick=()=>{ana.all.hist=true;view.t==='mouse'?renderMouse():renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
 async function init(){$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
