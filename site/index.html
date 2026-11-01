@@ -524,7 +524,7 @@ function renderMouse(){
  if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
  const cell=(r,c)=>{const v=mval(r,c);
   // Status: pick from the table directly (saves right away)
-  if(c==='status'&&canEdit())return`<td><select class="stsel" data-sid="${esc(mget(r,'id'))}">${MSTATUS.map(s=>`<option value="${s}"${s===v?' selected':''}>${stLabel(s)}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}${v?'':'<option value="" selected>—</option>'}</select></td>`;
+  if(c==='status'&&canEdit())return`<td><select class="stsel" data-sid="${esc(mget(r,'id'))}">${MSTATUS.map(s=>`<option value="${s}"${s===v?' selected':''} title="${MSTATUS_KO[s]||''}">${s}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}${v?'':'<option value="" selected>—</option>'}</select></td>`;  // table: English only (Korean in the detail panel / filter)
   if(!v)return'<td class="na">·</td>';
   if(c==='kras'&&v==='+/-')return`<td><span class="kh">${esc(v)}</span></td>`;  // only Kras het is highlighted
   if(c==='sex'){const s=v.toUpperCase();return s==='M'||s==='F'?`<td class="sx ${s.toLowerCase()}">${s==='M'?'♂ M':'♀ F'}</td>`:`<td>${esc(v)}</td>`}
@@ -559,9 +559,9 @@ async function saveStatus(sel){const id=sel.dataset.sid,r=MOUSE.rows.find(x=>mge
  if(!ok){sel.value=old;sel.disabled=false;return}
  if(curM===id&&det.classList.contains('open')&&!detEdit)openMouse(id,false)}
 // next free number: sequential, skipping any number that contains the digit 9
-const MSTATUS=['Live','Breeding','Retired','Planning','Used','Dead','Sacrificed'];
+const MSTATUS=['Live','Breeding','Retired','Planning','Experiment','Used','Dead','Sacrificed'];
 // stored value stays English; dropdowns show a Korean description next to it
-const MSTATUS_KO={Live:'사육 중',Breeding:'교배 중',Retired:'교배 종료 · 분리',Planning:'실험 배정 예정',Used:'실험 사용',Dead:'폐사',Sacrificed:'희생'};
+const MSTATUS_KO={Live:'사육 중',Breeding:'교배 중',Retired:'교배 종료 · 분리',Planning:'실험 배정 예정',Experiment:'실험 중',Used:'실험 사용',Dead:'폐사',Sacrificed:'희생'};
 const stLabel=s=>MSTATUS_KO[s]?`${s} — ${MSTATUS_KO[s]}`:s;
 const idNum=id=>{const m=/^KPC-(\d+)$/.exec(id);return m?+m[1]:null};
 function nextIds(start,n){const used=new Set(MOUSE.rows.map(r=>mget(r,'id')));let k=idNum(start);if(k===null)return n===1?[start]:null;
