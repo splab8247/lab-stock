@@ -96,6 +96,11 @@ nav .mnav{padding-left:10px;font-weight:600}
 #det .hint{font-size:11px;color:var(--mute);margin-top:3px}
 #det .cnt2{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--mute)}#det .cnt2 input{width:64px;padding:4px 6px}
 dialog.toed{width:520px}.toed img{display:block;width:100%;max-width:440px;margin:12px auto 0;background:#fff;border-radius:8px}
+.ch.fold{cursor:pointer;user-select:none}.ch.fold .caret{color:var(--mute);font-size:11px;width:10px}
+.card.folded .ch{margin-bottom:0}
+.stat small.brk{display:block;font-size:11px;color:var(--mute);margin-top:2px;white-space:nowrap}
+.stsel{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+.stsel:disabled{opacity:.5;cursor:wait}
 .hist{max-height:300px;overflow:auto}.hist.open{max-height:none}
 .hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
 .hi:hover{background:var(--bg)}.hw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm{color:var(--mute);font-size:11px;white-space:nowrap}
@@ -433,12 +438,18 @@ function histList(){if(view.t==='mouse')return hist.filter(h=>h.kind==='mouse').
 function histCard(){const list=histList(),isM=view.t==='mouse';
  const top=ana.all.hist?list:list.slice(0,12);
  // no link to github.com: its commit pages rate-limit anonymous visitors (429) on the shared lab IP
- let h=`<div class="card" id="histcard"><div class="ch"><b>최근 변경 기록${isM?' (마우스)':''}</b><span class="mute">최근 ${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${list.length>12?`<button class="more" style="margin:0 0 0 auto" data-more="hist">${ana.all.hist?'접기':'더보기'}</button>`:''}</div><div class="hist${ana.all.hist?' open':''}">`;
+ // the whole card folds to its title line; remembered per page (stock / mouse)
+ const fk='histfold.'+(isM?'mouse':'stock'),folded=LS.get(fk)==='1';
+ let h=`<div class="card${folded?' folded':''}" id="histcard"><div class="ch fold" data-fold="${fk}" title="${folded?'펼치기':'접기'}"><span class="caret">${folded?'▸':'▾'}</span><b>최근 변경 기록${isM?' (마우스)':''}</b><span class="mute">최근 ${list.length}건 · ${histLive?'실시간':'1~2분 지연'}</span>${!folded&&list.length>12?`<button class="more" style="margin:0 0 0 auto" data-more="hist">${ana.all.hist?'접기':'더보기'}</button>`:''}</div>`;
+ if(folded)return h+'</div>';
+ h+=`<div class="hist${ana.all.hist?' open':''}">`;
  top.forEach((x,i)=>{const verb=(x.what.match(/(병합 해제|병합|삭제|추가|수정|이름 변경)/)||[''])[0];
   const w=x.what.replace(/^마우스 /,'').replace(verb,'').replace('~',' ~ ').replace(/\s+/g,' ').trim();
   h+=`<div class="hi" data-hist="${i}" title="${esc(new Date(x.date).toLocaleString('ko-KR'))}"><span class="hv v-${verb.replace(' ','')}">${esc(verb||'변경')}</span><span class="hw">${esc(w)}</span><span class="hm">${esc(x.who)} · ${ago(x.date)}</span></div>`});
  if(!list.length)h+=`<div class="mute" style="padding:20px">${view.t==='box'?'이 박스의 변경 기록이 없습니다':'아직 사이트에서 저장한 기록이 없습니다'}</div>`;
  return h+'</div></div>'}
+main.addEventListener('click',e=>{const f=e.target.closest('[data-fold]');if(!f||e.target.closest('[data-more]'))return;
+ LS.set(f.dataset.fold,LS.get(f.dataset.fold)==='1'?'':'1');view.t==='mouse'?renderMouse():renderAna()});
 main.addEventListener('click',e=>{const it=e.target.closest('[data-hist]');if(!it)return;
  const x=histList()[+it.dataset.hist];if(!x)return;
  const mm=/^마우스 ([^\s~]+)/.exec(x.what);if(mm){hl=null;term='';$('q').value='';if(view.t!=='mouse'){view={t:'mouse'};render()}if(MOUSE.rows.some(r=>mget(r,'id')===mm[1]))openMouse(mm[1],false);else toast(`${mm[1]}은(는) 지금 목록에 없습니다.`,false);return}
@@ -476,30 +487,45 @@ const mst={preset:LS.get('mpreset')||'기본',custom:null,group:LS.get('mgroup')
 try{const c=JSON.parse(LS.get('mcustom')||'null');if(Array.isArray(c))mst.custom=c}catch(e){}
 const mcols=()=>mst.preset==='직접 선택'&&mst.custom?mst.custom:MPRESET[mst.preset]||MPRESET['기본'];
 const mget=(r,c)=>{const i=MOUSE.cols.indexOf(c);return i>=0?r[i]:''};
+// "ended" mice are no longer in the colony; everything else (Live/Breeding/Retired/Planning/blank) counts as alive
+const ENDED=['Dead','Sacrificed','Used'];
+const isAlive=r=>!ENDED.includes(mget(r,'status'));
+mst.showEnded=LS.get('mshowended')==='1';
+// cages whose mice have all ended; mice without a cage are hidden only if they ended themselves
+function endedCages(){const g=new Map();MOUSE.rows.forEach(r=>{const k=mget(r,'cage');if(!k)return;g.set(k,(g.has(k)?g.get(k):true)&&!isAlive(r))});return new Set([...g].filter(([,e])=>e).map(([k])=>k))}
+const hiddenRow=(r,ec)=>mget(r,'cage')?ec.has(mget(r,'cage')):!isAlive(r);
 const ageW=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return'';return Math.floor((Date.now()-new Date(d+'T00:00:00'))/6048e5)};
 // toe clip code from the number: units digit -> front paw 1-8, tens digit -> hind paw 10-80 (digit 9 is never used)
 // the first number after "KPC-" is the clip number, so suffixed ids like KPC-037-1 still map to 37
 function toe(id){const m=String(id).match(/^KPC-(\d+)/i)||String(id).match(/(\d+)\s*$/);if(!m)return null;const n=+m[1];const u=n%10,t=Math.floor(n/10)%10;
  return{front:u,hind:t*10,txt:`앞발 ${u||'없음'} · 뒷발 ${t?t*10:'없음'}`,bad:u===9||t===9||n>=100}}
 const mval=(r,c)=>c==='generation'?genDisp(r):c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
-function mouseRows(){return MOUSE.rows.filter(r=>(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))}
+function mouseRows(){const ec=endedCages();return MOUSE.rows.filter(r=>(mst.showEnded||!hiddenRow(r,ec))&&(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))}
 function renderMouse(){
- const all=MOUSE.rows,live=all.filter(r=>/live/i.test(mget(r,'status'))),rows=mouseRows(),cols=mcols();
- const cages=new Set(all.map(r=>mget(r,'cage')).filter(Boolean)),statuses=[...new Set([...MSTATUS,...all.map(r=>mget(r,'status')).filter(Boolean)])];
- let h=`<div class="crumb">KPC mouse${canEdit()?' · <span style="color:var(--acc)">행을 누르면 수정할 수 있어요</span>':''}</div><div class="stats">
-  <div class="stat"><b>${all.length}</b><span>전체 개체</span></div><div class="stat"><b>${live.length}</b><span>Live</span></div>
-  <div class="stat"><b>${all.filter(r=>mget(r,'sex')==='M').length} / ${all.filter(r=>mget(r,'sex')==='F').length}</b><span>♂ / ♀</span></div>
-  <div class="stat"><b>${cages.size}</b><span>Cage</span></div>
-  ${statuses.filter(s=>!/live/i.test(s)&&all.some(r=>mget(r,'status')===s)).map(s=>`<div class="stat"><b>${all.filter(r=>mget(r,'status')===s).length}</b><span>${esc(s)}</span></div>`).join('')}
+ const all=MOUSE.rows,alive=all.filter(isAlive),ended=all.filter(r=>!isAlive(r)),rows=mouseRows(),cols=mcols();
+ const ec=endedCages(),cages=new Set(all.map(r=>mget(r,'cage')).filter(c=>c&&!ec.has(c))),statuses=[...new Set([...MSTATUS,...all.map(r=>mget(r,'status')).filter(Boolean)])];
+ // "N개 상태: 내역" line under a stat card, zero counts left out
+ const brk=(list,keys)=>keys.map(s=>[s,list.filter(r=>(mget(r,'status')||'Live')===s).length]).filter(([,n])=>n).map(([s,n])=>`${s} ${n}`).join(' · ');
+ const aliveKeys=[...new Set([...MSTATUS.filter(s=>!ENDED.includes(s)),...alive.map(r=>mget(r,'status')||'Live')])];
+ let h=`<div class="crumb">KPC mouse${canEdit()?' · <span style="color:var(--acc)">행을 누르면 수정, Status는 표에서 바로 바꿀 수 있어요</span>':''}</div><div class="stats">
+  <div class="stat"><b>${all.length}</b><span>전체 개체</span></div>
+  <div class="stat"><b>${alive.length}</b><span>살아 있는 개체</span><small class="brk">${brk(alive,aliveKeys)||'—'}</small></div>
+  <div class="stat"><b>${alive.filter(r=>mget(r,'sex').toUpperCase()==='M').length} / ${alive.filter(r=>mget(r,'sex').toUpperCase()==='F').length}</b><span>♂ / ♀ (살아 있는)</span></div>
+  <div class="stat"><b>${cages.size}</b><span>Cage (사용 중)</span></div>
+  <div class="stat"><b>${ended.length}</b><span>종료</span><small class="brk">${brk(ended,ENDED)||'—'}</small></div>
   ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
  h+=`<div class="ana one">${histCard()}</div>`;  // same place and look as the freezer page's history card
  h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
   <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option value="${esc(s)}"${s===mst.status?' selected':''}>${esc(stLabel(s))}</option>`).join('')}</select>
   <select id="m_sex"><option value="">성별 전체</option><option value="M"${mst.sex==='M'?' selected':''}>♂ M</option><option value="F"${mst.sex==='F'?' selected':''}>♀ F</option></select>
   <label class="chk"><input type="checkbox" id="m_group"${mst.group?' checked':''}> Cage별 묶기</label>
+  <label class="chk"><input type="checkbox" id="m_ended"${mst.showEnded?' checked':''}> 종료된 케이지 보기${ec.size?` <span class="mute">(${ec.size}개${mst.showEnded?'':' 숨김'})</span>`:''}</label>
   <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="m_toe">🐭 발가락 표시</button>${canEdit()?'<button class="btn sm pri" id="m_add">＋ 마우스 추가</button>':''}</span></div>`;
  if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
- const cell=(r,c)=>{const v=mval(r,c);if(!v)return'<td class="na">·</td>';
+ const cell=(r,c)=>{const v=mval(r,c);
+  // Status: pick from the table directly (saves right away)
+  if(c==='status'&&canEdit())return`<td><select class="stsel" data-sid="${esc(mget(r,'id'))}">${MSTATUS.map(s=>`<option value="${s}"${s===v?' selected':''}>${stLabel(s)}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}${v?'':'<option value="" selected>—</option>'}</select></td>`;
+  if(!v)return'<td class="na">·</td>';
   if(c==='kras'&&v==='+/-')return`<td><span class="kh">${esc(v)}</span></td>`;  // only Kras het is highlighted
   if(c==='sex'){const s=v.toUpperCase();return s==='M'||s==='F'?`<td class="sx ${s.toLowerCase()}">${s==='M'?'♂ M':'♀ F'}</td>`:`<td>${esc(v)}</td>`}
   if(c==='id')return`<td><b>${esc(v)}</b></td>`;return`<td>${esc(v)}</td>`};
@@ -516,12 +542,22 @@ main.addEventListener('click',e=>{if(view.t!=='mouse')return;const t=e.target;
  const p=t.closest('[data-mp]');if(p){mst.preset=p.dataset.mp;LS.set('mpreset',mst.preset);if(mst.preset==='직접 선택'&&!mst.custom)mst.custom=MPRESET['기본'].slice();renderMouse();return}
  if(t.id==='m_toe')return $('toed').showModal();
  if(t.id==='m_add')return openMouse(null,true);
+ if(t.closest('.stsel'))return;  // the inline status dropdown must not open the detail panel
  const tr=t.closest('tr[data-mid]');if(!tr||(tr.dataset.mid===curM&&det.classList.contains('open')))return;
  const keep=detEdit&&det.classList.contains('open');if(!leaveOK())return;openMouse(tr.dataset.mid,keep)});
 main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
  if(t.id==='m_status'){mst.status=t.value;renderMouse()}else if(t.id==='m_sex'){mst.sex=t.value;renderMouse()}
+ else if(t.id==='m_ended'){mst.showEnded=t.checked;LS.set('mshowended',t.checked?'1':'');renderMouse()}
+ else if(t.classList.contains('stsel'))saveStatus(t);
  else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
  else if(t.dataset.mc){const c=t.dataset.mc;mst.custom=Object.keys(MCOL).filter(k=>k===c?t.checked:mst.custom.includes(k));LS.set('mcustom',JSON.stringify(mst.custom));renderMouse()}});
+// inline status change from the table: only that row's status is written into the latest CSV
+async function saveStatus(sel){const id=sel.dataset.sid,r=MOUSE.rows.find(x=>mget(x,'id')===id);if(!r)return;
+ const old=mget(r,'status'),nv=sel.value;if(nv===old)return;sel.disabled=true;
+ const ok=await saveFile(MOUSE,(rows,hdr)=>{const i=rows.findIndex((x,k)=>k>0&&x[1]===id),si=hdr.indexOf('status');
+  if(i<0)throw new Error(id+'을(를) 찾을 수 없습니다');rows[i][si]=nv;return rows},`마우스 ${id} 수정`);
+ if(!ok){sel.value=old;sel.disabled=false;return}
+ if(curM===id&&det.classList.contains('open')&&!detEdit)openMouse(id,false)}
 // next free number: sequential, skipping any number that contains the digit 9
 const MSTATUS=['Live','Breeding','Retired','Planning','Used','Dead','Sacrificed'];
 // stored value stays English; dropdowns show a Korean description next to it
@@ -617,7 +653,7 @@ $('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_
 $('s_cancel').onclick=()=>setd.close();
 $('s_ok').onclick=()=>{LS.set('name',$('s_name').value.trim());LS.set('tok',$('s_tok').value.trim());LS.set('repo',$('s_repo').value.trim());setd.close();init()};
 $('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.close();init()};
-$('histb').onclick=()=>{ana.all.hist=true;view.t==='mouse'?renderMouse():renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
+$('histb').onclick=()=>{ana.all.hist=true;LS.set('histfold.'+(view.t==='mouse'?'mouse':'stock'),'');view.t==='mouse'?renderMouse():renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
 async function init(){$('mode').textContent=canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()?' on':'');
