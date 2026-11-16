@@ -21,6 +21,7 @@ DECEASED_STATUSES = {"dead", "sacrificed", "sacrifised"}
 HEADER_FILL = PatternFill("solid", fgColor="DAE6F0")
 # same colors as the original KPC Excel conditional format (M blue, F pink)
 SEX_FILL = {"M": PatternFill(bgColor="D9E1F2"), "F": PatternFill(bgColor="F5DDE4")}
+KRAS_HET_FILL = PatternFill("solid", fgColor="FFFFE08A", bgColor="FFFFE08A")
 
 
 def convert(col, value):
@@ -57,10 +58,30 @@ def add_sheet(wb, name, fname):
         for row in data:
             target = deceased if row[status].strip().lower() in DECEASED_STATUSES else current
             target.append(row)
-        write_sheet(wb, name, header, current)
-        write_sheet(wb, "폐사·희생", header, deceased)
+        write_mouse_sheet(wb, name, header, current)
+        write_mouse_sheet(wb, "폐사·희생", header, deceased)
     else:
         write_sheet(wb, name, header, data)
+
+
+def write_mouse_sheet(wb, name, header, data):
+    ws = write_sheet(wb, name, header, data)
+    dob = get_column_letter(header.index("dob") + 1)
+    kras = get_column_letter(header.index("kras") + 1)
+    age_col = len(header) + 1
+    age_header = ws.cell(1, age_col, "주령")
+    age_header.font = Font(bold=True)
+    age_header.fill = HEADER_FILL
+    ws.column_dimensions[get_column_letter(age_col)].width = 10
+    for row in range(2, ws.max_row + 1):
+        birth = f"{dob}{row}"
+        cell = ws.cell(row, age_col, f'=IF(ISNUMBER({birth}),INT((TODAY()-{birth})/7),"")')
+        cell.number_format = '0"주"'
+    ws.conditional_formatting.add(
+        f"{kras}2:{kras}{max(ws.max_row, 2) + 500}",
+        FormulaRule(formula=[f'TRIM({kras}2)="+/-"'], fill=KRAS_HET_FILL),
+    )
+    ws.auto_filter.ref = ws.dimensions
 
 
 def write_sheet(wb, name, header, data):
@@ -87,6 +108,7 @@ def write_sheet(wb, name, header, data):
             ws.conditional_formatting.add(rng, FormulaRule(formula=[f'UPPER({letter}2)="{val}"'], fill=fill))
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
+    return ws
 
 
 def main():
