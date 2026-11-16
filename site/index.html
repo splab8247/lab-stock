@@ -489,21 +489,30 @@ const mcols=()=>mst.preset==='직접 선택'&&mst.custom?mst.custom:MPRESET[mst.
 const mget=(r,c)=>{const i=MOUSE.cols.indexOf(c);return i>=0?r[i]:''};
 // "ended" mice are no longer in the colony; everything else (Live/Breeding/Retired/Planning/blank) counts as alive
 const ENDED=['Dead','Sacrificed','Used'];
-const isAlive=r=>!ENDED.includes(mget(r,'status'));
+const endedStatuses=new Set([...ENDED.map(s=>s.toLowerCase()),'sacrifised']);
+const isAlive=r=>!endedStatuses.has(mget(r,'status').trim().toLowerCase());
 mst.showEnded=LS.get('mshowended')==='1';
-// cages whose mice have all ended; mice without a cage are hidden only if they ended themselves
-function endedCages(){const g=new Map();MOUSE.rows.forEach(r=>{const k=mget(r,'cage');if(!k)return;g.set(k,(g.has(k)?g.get(k):true)&&!isAlive(r))});return new Set([...g].filter(([,e])=>e).map(([k])=>k))}
-const hiddenRow=(r,ec)=>mget(r,'cage')?ec.has(mget(r,'cage')):!isAlive(r);
+function compareMouseLabels(a,b){
+ a=a.trim().toLowerCase();b=b.trim().toLowerCase();
+ if(!a||!b)return Number(!a)-Number(!b);
+ const chunks=s=>s.split(/([0-9]+)/).map((part,i)=>i%2?BigInt(part):part);
+ const left=chunks(a),right=chunks(b);
+ for(let i=0;i<Math.min(left.length,right.length);i++){
+  if(left[i]!==right[i])return left[i]<right[i]?-1:1;
+ }
+ return left.length-right.length||(a<b?-1:Number(a>b));
+}
 const ageW=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return'';return Math.floor((Date.now()-new Date(d+'T00:00:00'))/6048e5)};
 // toe clip code from the number: units digit -> front paw 1-8, tens digit -> hind paw 10-80 (digit 9 is never used)
 // the first number after "KPC-" is the clip number, so suffixed ids like KPC-037-1 still map to 37
 function toe(id){const m=String(id).match(/^KPC-(\d+)/i)||String(id).match(/(\d+)\s*$/);if(!m)return null;const n=+m[1];const u=n%10,t=Math.floor(n/10)%10;
  return{front:u,hind:t*10,txt:`앞발 ${u||'없음'} · 뒷발 ${t?t*10:'없음'}`,bad:u===9||t===9||n>=100}}
 const mval=(r,c)=>c==='generation'?genDisp(r):c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
-function mouseRows(){const ec=endedCages();return MOUSE.rows.filter(r=>(mst.showEnded||!hiddenRow(r,ec))&&(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))}
+function mouseRows(){return MOUSE.rows.filter(r=>(mst.showEnded||isAlive(r))&&(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))
+ .sort((a,b)=>compareMouseLabels(mget(a,'cage'),mget(b,'cage'))||compareMouseLabels(mget(a,'id'),mget(b,'id')))}
 function renderMouse(){
  const all=MOUSE.rows,alive=all.filter(isAlive),ended=all.filter(r=>!isAlive(r)),rows=mouseRows(),cols=mcols();
- const ec=endedCages(),cages=new Set(all.map(r=>mget(r,'cage')).filter(c=>c&&!ec.has(c))),statuses=[...new Set([...MSTATUS,...all.map(r=>mget(r,'status')).filter(Boolean)])];
+ const cages=new Set(alive.map(r=>mget(r,'cage')).filter(Boolean)),statuses=[...new Set([...MSTATUS,...all.map(r=>mget(r,'status')).filter(Boolean)])];
  // "N개 상태: 내역" line under a stat card, zero counts left out
  const brk=(list,keys)=>keys.map(s=>[s,list.filter(r=>(mget(r,'status')||'Live')===s).length]).filter(([,n])=>n).map(([s,n])=>`${s} ${n}`).join(' · ');
  const aliveKeys=[...new Set([...MSTATUS.filter(s=>!ENDED.includes(s)),...alive.map(r=>mget(r,'status')||'Live')])];
@@ -512,14 +521,14 @@ function renderMouse(){
   <div class="stat"><b>${alive.length}</b><span>살아 있는 개체</span><small class="brk">${brk(alive,aliveKeys)||'—'}</small></div>
   <div class="stat"><b>${alive.filter(r=>mget(r,'sex').toUpperCase()==='M').length} / ${alive.filter(r=>mget(r,'sex').toUpperCase()==='F').length}</b><span>♂ / ♀ (살아 있는)</span></div>
   <div class="stat"><b>${cages.size}</b><span>Cage (사용 중)</span></div>
-  <div class="stat"><b>${ended.length}</b><span>종료</span><small class="brk">${brk(ended,ENDED)||'—'}</small></div>
+  <div class="stat"><b>${ended.length}</b><span>종료</span><small class="brk">${brk(ended,[...new Set([...ENDED,...ended.map(r=>mget(r,'status'))])])||'—'}</small></div>
   ${term?`<div class="stat hl"><b>${rows.length}</b><span>"${esc(term)}" 검색 결과</span></div>`:''}</div>`;
  h+=`<div class="ana one">${histCard()}</div>`;  // same place and look as the freezer page's history card
  h+=`<div class="mbar2"><span class="seg">${[...Object.keys(MPRESET),'직접 선택'].map(p=>`<button data-mp="${p}" class="${mst.preset===p?'on':''}">${p}</button>`).join('')}</span>
   <select id="m_status"><option value="">상태 전체</option>${statuses.map(s=>`<option value="${esc(s)}"${s===mst.status?' selected':''}>${esc(stLabel(s))}</option>`).join('')}</select>
   <select id="m_sex"><option value="">성별 전체</option><option value="M"${mst.sex==='M'?' selected':''}>♂ M</option><option value="F"${mst.sex==='F'?' selected':''}>♀ F</option></select>
   <label class="chk"><input type="checkbox" id="m_group"${mst.group?' checked':''}> Cage별 묶기</label>
-  <label class="chk"><input type="checkbox" id="m_ended"${mst.showEnded?' checked':''}> 종료된 케이지 보기${ec.size?` <span class="mute">(${ec.size}개${mst.showEnded?'':' 숨김'})</span>`:''}</label>
+  <label class="chk"><input type="checkbox" id="m_ended"${mst.showEnded?' checked':''}> 종료 개체 보기${ended.length?` <span class="mute">(${ended.length}마리${mst.showEnded?'':' 숨김'})</span>`:''}</label>
   <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="m_toe">🐭 발가락 표시</button>${canEdit()?'<button class="btn sm pri" id="m_add">＋ 마우스 추가</button>':''}</span></div>`;
  if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
  const cell=(r,c)=>{const v=mval(r,c);

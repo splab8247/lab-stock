@@ -2,6 +2,7 @@
 import csv
 import datetime as dt
 import pathlib
+import re
 
 from openpyxl import Workbook
 from openpyxl.formatting.rule import FormulaRule
@@ -37,14 +38,23 @@ def convert(col, value):
     return value
 
 
+def mouse_label_key(value):
+    value = value.strip().lower()
+    parts = re.split(r"([0-9]+)", value)
+    return not value, tuple(int(part) if i % 2 else part for i, part in enumerate(parts)), value
+
+
 def add_sheet(wb, name, fname):
     ws = wb.create_sheet(name)
     with open(ROOT / "data" / fname, encoding="utf-8-sig", newline="") as f:
         rows = list(csv.reader(f))
     header = rows[0]
+    data = [row + [""] * (len(header) - len(row)) for row in rows[1:]]
+    if fname == "mice.csv":
+        cage, mouse_id = header.index("cage"), header.index("id")
+        data.sort(key=lambda row: (mouse_label_key(row[cage]), mouse_label_key(row[mouse_id])))
     ws.append(header)
-    for r in rows[1:]:
-        r = r + [""] * (len(header) - len(r))
+    for r in data:
         ws.append([convert(c, v) for c, v in zip(header, r)])
     for cell in ws[1]:
         cell.font = Font(bold=True)
