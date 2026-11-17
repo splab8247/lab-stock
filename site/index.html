@@ -617,7 +617,11 @@ function moveMatingMice(rows,header,moves){
   return {row,to:move.to};
  });
  if(cage<0){cage=header.length;header.push('mating_cage');for(const r of rows.slice(1)){while(r.length<=cage)r.push('')}}
- for(const {row,to} of changes){row[cage]=to;if(to)row[status]='Breeding'}
+ for(const {row,to} of changes){
+  row[cage]=to;
+  if(to)row[status]='Breeding';
+  else if((row[status]||'').trim().toLowerCase()==='breeding')row[status]='Retired';
+ }
  return rows;
 }
 async function saveMatingMove(){
@@ -702,6 +706,7 @@ function renderMouse(){
  if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
  const cell=(r,c)=>{const v=mval(r,c);
   if(c==='status'&&matingEditable()){
+   if(mget(r,'mating_cage'))return `<td>${esc(v||'—')} <small class="mute" title="상태를 바꾸려면 먼저 메이팅 배정을 해제하세요.">메이팅 배정 중</small></td>`;
    const id=mget(r,'id'),change=statusBatch.pending.get(id),shown=change?.to??v;
    const options=[...new Set([...MSTATUS,v,shown])];
    return `<td><select class="stsel${change?' staged':''}" data-sid="${esc(id)}" aria-label="${esc(id)} 상태${change?' · 저장 대기':''}"${statusDisabled}>${options.map(s=>`<option value="${esc(s)}"${s===shown?' selected':''} title="${MSTATUS_KO[s]||''}">${esc(s==='Sacrificed'?stLabel(s):s||'—')}</option>`).join('')}</select></td>`;
@@ -739,7 +744,7 @@ main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
 function stageStatus(sel){
  if(!matingEditable()||mouseBatchBusy())return;
  const id=sel.dataset.sid,r=MOUSE.rows.find(x=>mget(x,'id')===id);
- if(!r)return;
+ if(!r||mget(r,'mating_cage'))return;
  const from=statusBatch.pending.get(id)?.from??mget(r,'status');
  if(sel.value===from)statusBatch.pending.delete(id);
  else statusBatch.pending.set(id,{id,from,to:sel.value});
@@ -747,10 +752,11 @@ function stageStatus(sel){
  main.querySelector(`.stsel[data-sid="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
 }
 function updateMouseStatuses(rows,header,changes){
- const id=header.indexOf('id'),status=header.indexOf('status');
+ const id=header.indexOf('id'),status=header.indexOf('status'),matingCage=header.indexOf('mating_cage');
  const byId=new Map(rows.slice(1).map(row=>[row[id],row]));
  for(const change of changes){
   const row=byId.get(change.id);
+  if(row?.[matingCage])throw new Error(change.id+'은(는) 메이팅에 배정되어 상태를 바꿀 수 없습니다.');
   if(!row||(row[status]??'')!==change.from)
    throw new Error(change.id+'의 상태가 바뀌었습니다. 최신 내용을 확인한 뒤 다시 시도하세요.');
  }
@@ -813,6 +819,7 @@ function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(
  let dl=MOUSE.cols.map((c,i)=>{const v=vals[i];
   if(c==='mating_cage')return `<dt>메이팅 케이지</dt><dd>${v?esc(v):'미배정'}</dd>`;
   if(editable){
+   if(c==='status'&&r&&mget(r,'mating_cage'))return `<dt>${lbl(c)}</dt><dd>${esc(stLabel(v)||'—')}<div class="hint">상태를 바꾸려면 먼저 메이팅 배정을 해제하세요.</div></dd>`;
    // fixed choices -> toggle buttons (click again to clear); dates -> calendar; status/parents -> dropdown
    if(MCHOICE[c])return`<dt>${lbl(c)}</dt><dd><input type="hidden" data-mi="${i}" value="${esc(v)}"><span class="pick" data-for="${i}">${MCHOICE[c].map(o=>`<button type="button" data-v="${esc(o)}" class="${o===v?'on':''}${c==='sex'?' s'+o.toLowerCase():''}${c==='kras'&&o==='+/-'?' kp':''}">${c==='sex'?(o==='M'?'♂ M':'♀ F'):esc(o)}</button>`).join('')}</span></dd>`;
    if(MDATE.includes(c))return`<dt>${lbl(c)}</dt><dd><input type="date" data-mi="${i}" value="${esc(v)}"></dd>`;
@@ -842,6 +849,7 @@ $('dacts').addEventListener('click',async e=>{const id=e.target.id;if(!id.starts
  if(id==='m_del'){if(!confirm(`${curM}을(를) 목록에서 삭제할까요?\n(폐사 또는 개체 정리를 기록하려면 상태를 변경하세요.)`))return;
   const ok=await saveFile(MOUSE,rows=>rows.filter((r,i)=>i===0||r[1]!==curM),`마우스 ${curM} 삭제`);if(ok)closeDet();return}
  if(id==='m_save'){const C=c=>MOUSE.cols.indexOf(c),nv=MOUSE.cols.map(()=>'');
+  const statusEditable=!!det.querySelector(`[data-mi="${C('status')}"]`);
   det.querySelectorAll('[data-mi]').forEach(inp=>nv[+inp.dataset.mi]=inp.value.trim());
   const g=genFrom(nv[C('mother')],nv[C('father')]);if(g!==null)nv[C('generation')]=String(g);
   const nid=nv[C('id')];if(!nid)return toast('번호를 입력하세요.',false);
@@ -849,7 +857,8 @@ $('dacts').addEventListener('click',async e=>{const id=e.target.id;if(!id.starts
   const old=curM;
   if(old){if(nid!==old&&MOUSE.rows.some(r=>mget(r,'id')===nid))return toast(`${nid}은(는) 이미 있는 번호입니다.`,false);
    const ok=await saveFile(MOUSE,(rows,hdr)=>{const i=rows.findIndex((r,k)=>k>0&&r[1]===old);if(i<0)throw new Error(old+'을(를) 찾을 수 없습니다');
-    rows[i]=hdr.map((c,j)=>c==='mating_cage'||C(c)<0?(rows[i][j]??''):(nv[C(c)]??''));return rows},`마우스 ${nid} 수정`);if(ok)openMouse(nid,false);return}
+    const row=rows[i],statusLocked=!statusEditable||!!row[hdr.indexOf('mating_cage')];
+    rows[i]=hdr.map((c,j)=>c==='mating_cage'||(c==='status'&&statusLocked)||C(c)<0?(row[j]??''):(nv[C(c)]??''));return rows},`마우스 ${nid} 수정`);if(ok)openMouse(nid,false);return}
   // new (or copied): n consecutive free numbers starting at the typed one
   const n=Math.min(20,Math.max(1,+($('m_count')||{}).value||1)),ids=nextIds(nid,n);
   if(!ids)return toast('여러 마리는 KPC-숫자 형식 번호에서만 만들 수 있어요.',false);
