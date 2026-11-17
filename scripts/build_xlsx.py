@@ -52,6 +52,12 @@ def add_sheet(wb, name, fname):
         header = next(reader)
         data = [row + [""] * (len(header) - len(row)) for row in reader]
     if fname == "mice.csv":
+        if "mating_cage_registry" in header:
+            registry = header.index("mating_cage_registry")
+            data = [row for row in data if not row[registry]]
+            header.pop(registry)
+            for row in data:
+                row.pop(registry)
         cage, mouse_id, status = (header.index(col) for col in ("cage", "id", "status"))
         data.sort(key=lambda row: (mouse_label_key(row[cage]), mouse_label_key(row[mouse_id])))
         current, deceased = [], []
