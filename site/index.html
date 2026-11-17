@@ -101,6 +101,7 @@ dialog.toed{width:520px}.toed img{display:block;width:100%;max-width:440px;margi
 .stat small.brk{display:block;font-size:11px;color:var(--mute);margin-top:2px;white-space:nowrap}
 .stsel{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
 .stsel:disabled{opacity:.5;cursor:wait}
+.stsel.staged{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
 .hist{max-height:300px;overflow:auto}.hist.open{max-height:none}
 .hi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;border-radius:4px}
 .hi:hover{background:var(--bg)}.hw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hm{color:var(--mute);font-size:11px;white-space:nowrap}
@@ -537,10 +538,25 @@ function toe(id){const m=String(id).match(/^KPC-(\d+)/i)||String(id).match(/(\d+
 const mval=(r,c)=>c==='generation'?genDisp(r):c==='age'?(ageW(mget(r,'dob'))===''?'':ageW(mget(r,'dob'))+'주'):c==='toe'?(toe(mget(r,'id'))||{}).txt||'':mget(r,c);
 function mouseRows(){return MOUSE.rows.filter(r=>(mst.showEnded||isAlive(r))&&(!mst.status||mget(r,'status')===mst.status)&&(!mst.sex||mget(r,'sex')===mst.sex)&&(!term||r.join(' ').toLowerCase().includes(term)))
  .sort((a,b)=>compareMouseLabels(mget(a,'cage'),mget(b,'cage'))||compareMouseLabels(mget(a,'id'),mget(b,'id')))}
-const mating={active:localPreview,selected:'',dragging:'',pending:null,busy:false,drafts:new Set()};
+const mating={active:localPreview,selected:'',dragging:'',pending:new Map(),busy:false,drafts:new Set()};
+const statusBatch={pending:new Map(),busy:false};
+const plannedMatingCage=r=>mating.pending.get(mget(r,'id'))?.to??mget(r,'mating_cage');
+function warnUnsavedMouseChanges(event){event.preventDefault();event.returnValue=''}
+function updateMouseUnloadWarning(){
+ if(mating.pending.size||statusBatch.pending.size)window.addEventListener('beforeunload',warnUnsavedMouseChanges);
+ else window.removeEventListener('beforeunload',warnUnsavedMouseChanges);
+}
+const mouseBatchBusy=()=>mating.busy||statusBatch.busy;
+function savePreviewMice(mutate){
+ const rows=[MOUSE.cols.slice(),...MOUSE.rows.map(r=>r.slice())];
+ const csv=toCSV(mutate(rows,rows[0]));
+ localStorage.setItem('stock.separateMatingPreviewCsv',csv);
+ MOUSE.build(MOUSE,csv);
+ toast('이 브라우저에 저장했습니다.');
+}
 const mouseTabs=()=>`<div class="m-cage-tabs" role="group" aria-label="마우스 케이지 화면">${[['list','일반 케이지'],['mating','메이팅 케이지']].map(([key,label])=>{
  const active=mating.active===(key==='mating');
- return `<button type="button" class="btn sm${active?' pri':''}" data-cage-tab="${key}" aria-pressed="${active}"${mating.busy?' disabled':''}>${label}</button>`}).join('')}</div>`;
+ return `<button type="button" class="btn sm${active?' pri':''}" data-cage-tab="${key}" aria-pressed="${active}"${mouseBatchBusy()?' disabled':''}>${label}</button>`}).join('')}</div>`;
 const matingEditable=()=>localPreview||canEdit();
 function matingCages(rows){
  return [...new Set([...rows.filter(isAlive).map(r=>mget(r,'mating_cage')).filter(Boolean),...mating.drafts])].sort(compareMouseLabels);
@@ -548,7 +564,7 @@ function matingCages(rows){
 function renderMating(){
  const alive=MOUSE.rows.filter(isAlive).sort((a,b)=>compareMouseLabels(mget(a,'cage'),mget(b,'cage'))||compareMouseLabels(mget(a,'id'),mget(b,'id')));
  const cages=matingCages(alive),edit=matingEditable(),disabled=mating.busy?' disabled':'';
- const candidates=alive.filter(r=>!mget(r,'mating_cage')&&(!term||r.join(' ').toLowerCase().includes(term)));
+ const candidates=alive.filter(r=>!plannedMatingCage(r)&&(!term||r.join(' ').toLowerCase().includes(term)));
  const mouseCard=r=>{
   const id=mget(r,'id'),sex=mget(r,'sex').toUpperCase();
   const kras=mget(r,'kras');
@@ -556,18 +572,18 @@ function renderMating(){
   const location=mget(r,'cage')?'일반 '+mget(r,'cage'):'일반 케이지 미지정';
   const content=`<span class="mating-mouse-top"><b class="mating-mouse-id">${esc(id)}</b><span class="mating-mouse-sex${sex==='M'?' m':sex==='F'?' f':''}">${sexLabel}</span></span>
    <span class="mating-mouse-info"><span class="mute">${esc(location)}</span><span class="mating-kras${kras==='+/-'?' kh':''}">Kras <b>${esc(kras||'—')}</b></span></span>`;
-  return edit?`<button type="button" class="btn sm mating-mouse" draggable="${!mating.busy}" data-mating-mouse="${esc(id)}" aria-pressed="${mating.selected===id}"${disabled}>${content}</button>`:`<div class="mating-mouse">${content}</div>`;
+  return edit?`<button type="button" class="btn sm mating-mouse" draggable="${!mating.busy}" data-mating-mouse="${esc(id)}" aria-pressed="${mating.selected===id}"${disabled}>${content}${mating.pending.has(id)?'<small class="mute">저장 대기</small>':''}</button>`:`<div class="mating-mouse">${content}</div>`;
  };
  const cards=cages.map(cage=>{
-  const residents=alive.filter(r=>mget(r,'mating_cage')===cage),n=sex=>residents.filter(r=>mget(r,'sex').toUpperCase()===sex).length;
+  const residents=alive.filter(r=>plannedMatingCage(r)===cage),n=sex=>residents.filter(r=>mget(r,'sex').toUpperCase()===sex).length;
   const selected=alive.find(r=>mget(r,'id')===mating.selected);
-  const canAssign=selected&&mget(selected,'mating_cage')!==cage;
+  const canAssign=selected&&plannedMatingCage(selected)!==cage;
   return `<article class="mating-cage" data-mating-cage="${esc(cage)}"><div class="mating-cage-title"><strong>${esc(cage)}</strong><span class="mute">${residents.length}마리 · 수컷 ${n('M')} · 암컷 ${n('F')}</span></div>
    <div class="mating-list">${residents.map(mouseCard).join('')||'<span class="mute">빈 케이지</span>'}${edit?`<button type="button" class="btn sm" data-mating-assign="${esc(cage)}" aria-label="${esc(cage)}에 배정"${canAssign?disabled:' disabled'}>여기에 배정</button>`:''}</div></article>`;
  }).join('');
- const p=mating.pending;
- const confirmation=p?`<div class="mating-confirm"><span><b>${esc(p.id)} · ${esc(p.from||'미배정')} → ${esc(p.to||'미배정')}</b><br><small>메이팅 배정${p.to?' 및 Breeding 상태':''} 저장</small></span><button type="button" class="btn sm" data-mating-cancel${disabled}>취소</button><button type="button" class="btn sm pri" data-mating-save${disabled}>${mating.busy?'저장 중…':'이동 저장'}</button></div>`:'';
- const canClear=alive.some(r=>mget(r,'id')===mating.selected&&mget(r,'mating_cage'));
+ const count=mating.pending.size;
+ const confirmation=count?`<div class="mating-confirm"><span role="status"><b>${count}마리 변경 · 저장 대기</b></span><button type="button" class="btn sm" data-mating-cancel${disabled}>전체 취소</button><button type="button" class="btn sm pri" data-mating-save${disabled}>${mating.busy?'저장 중…':'한꺼번에 저장'}</button></div>`:'';
+ const canClear=alive.some(r=>mget(r,'id')===mating.selected&&plannedMatingCage(r));
  main.innerHTML=mouseTabs()+confirmation+`<div class="crumb">${edit?'개체를 끌어 놓거나, 선택한 뒤 케이지에 배정하세요.':'보기 전용 · 이동하려면 편집 설정에서 인증하세요.'}</div>
   <div class="mating-board"><section class="box mating-panel"><h2>배정 가능한 개체</h2><div class="mating-list">${candidates.map(mouseCard).join('')||'<span class="mute">표시할 개체가 없습니다.</span>'}${edit&&canClear?`<button type="button" class="btn sm" data-mating-clear${disabled}>선택 개체 배정 해제</button>`:''}</div></section>
   <section class="box mating-panel"><h2>메이팅 케이지</h2>${edit?`<form class="mating-add" data-mating-add><input name="cage" aria-label="새 메이팅 케이지 번호" placeholder="예: M-001" maxlength="40" required${disabled}><button class="btn sm"${disabled}>＋ 케이지 추가</button></form>`:''}
@@ -579,43 +595,44 @@ function proposeMatingMove(id,to){
  if(!matingEditable()||mating.busy)return;
  const r=MOUSE.rows.find(row=>mget(row,'id')===id&&isAlive(row));
  if(!r||(to&&!matingCages(MOUSE.rows).includes(to)))return;
- const from=mget(r,'mating_cage');
- if(from===to)return;
- mating.pending={id,from,to,status:mget(r,'status'),draft:mating.drafts.has(to)};
- renderMating();main.querySelector('[data-mating-save]').focus();
+ if(plannedMatingCage(r)===to)return;
+ const original=mating.pending.get(id)||{id,from:mget(r,'mating_cage'),status:mget(r,'status')};
+ if(original.from===to)mating.pending.delete(id);
+ else mating.pending.set(id,{...original,to,draft:mating.drafts.has(to)});
+ mating.selected='';updateMouseUnloadWarning();
+ renderMating();focusMatingMouse(id);
 }
-function moveMatingMouse(rows,header,move){
+function moveMatingMice(rows,header,moves){
  const id=header.indexOf('id'),status=header.indexOf('status');
  let cage=header.indexOf('mating_cage');
- const row=rows.slice(1).find(r=>r[id]===move.id);
- if(!row||(row[cage]||'')!==move.from||(row[status]||'')!==move.status)
-  throw new Error('개체의 메이팅 배정 또는 상태가 바뀌었습니다. 새로고침한 뒤 다시 시도하세요.');
- if(move.draft&&rows.slice(1).some(r=>!endedStatuses.has((r[status]||'').trim().toLowerCase())&&compareMouseLabels(r[cage]||'',move.to)===0))
-  throw new Error('이미 사용 중인 케이지 번호입니다. 새로고침한 뒤 다시 시도하세요.');
+ const data=rows.slice(1);
+ const changes=moves.map(move=>{
+  const row=data.find(r=>r[id]===move.id);
+  if(!row||(row[cage]||'')!==move.from||(row[status]||'')!==move.status)
+   throw new Error(move.id+'의 배정 또는 상태가 바뀌었습니다. 최신 내용을 확인한 뒤 다시 시도하세요.');
+  if(move.draft&&data.some(r=>!endedStatuses.has((r[status]||'').trim().toLowerCase())&&compareMouseLabels(r[cage]||'',move.to)===0))
+   throw new Error(move.to+'는 이미 사용 중인 케이지 번호입니다.');
+  return {row,to:move.to};
+ });
  if(cage<0){cage=header.length;header.push('mating_cage');for(const r of rows.slice(1)){while(r.length<=cage)r.push('')}}
- row[cage]=move.to;
- if(move.to)row[status]='Breeding';
+ for(const {row,to} of changes){row[cage]=to;if(to)row[status]='Breeding'}
  return rows;
 }
 async function saveMatingMove(){
- if(!matingEditable()||mating.busy||!mating.pending)return;
- const move=mating.pending;
+ if(!matingEditable()||mouseBatchBusy()||!mating.pending.size)return;
+ const moves=[...mating.pending.values()];
  mating.busy=true;renderMating();
  let ok=false;
  try{
   if(localPreview){
-   const rows=[MOUSE.cols.slice(),...MOUSE.rows.map(r=>r.slice())];
-   const csv=toCSV(moveMatingMouse(rows,rows[0],move));
-   localStorage.setItem('stock.separateMatingPreviewCsv',csv);
-   MOUSE.build(MOUSE,csv);
-   toast('이 브라우저에 저장했습니다.');
+   savePreviewMice((rows,header)=>moveMatingMice(rows,header,moves));
    ok=true;
-  }else ok=await saveFile(MOUSE,(rows,header)=>moveMatingMouse(rows,header,move),`마우스 ${move.id} 메이팅 ${move.to?move.to+' 배정':'배정 해제'}`);
+  }else ok=await saveFile(MOUSE,(rows,header)=>moveMatingMice(rows,header,moves),`마우스 ${moves.length}마리 메이팅 배정 변경`);
  }catch(e){toast('저장 실패: '+e.message,false)}
  finally{
   mating.busy=false;
-  if(ok){mating.drafts.delete(move.to);mating.pending=null;mating.selected=''}
-  if(view.t==='mouse'&&mating.active){renderMating();if(ok)focusMatingMouse(move.id);else main.querySelector('[data-mating-save]')?.focus()}
+  if(ok){for(const {to} of moves)mating.drafts.delete(to);mating.pending.clear();mating.selected='';updateMouseUnloadWarning()}
+  if(view.t==='mouse'&&mating.active){renderMating();if(ok)focusMatingMouse(moves[0].id);else main.querySelector('[data-mating-save]')?.focus()}
  }
 }
 main.addEventListener('click',e=>{
@@ -624,7 +641,7 @@ main.addEventListener('click',e=>{
  if(card){const id=card.dataset.matingMouse;mating.selected=mating.selected===id?'':id;renderMating();focusMatingMouse(id)}
  else if(assign)proposeMatingMove(mating.selected,assign.dataset.matingAssign);
  else if(e.target.closest('[data-mating-clear]'))proposeMatingMove(mating.selected,'');
- else if(e.target.closest('[data-mating-cancel]')){const id=mating.pending.id;mating.pending=null;renderMating();focusMatingMouse(id)}
+ else if(e.target.closest('[data-mating-cancel]')){mating.pending.clear();mating.selected='';updateMouseUnloadWarning();renderMating()}
  else if(e.target.closest('[data-mating-save]'))saveMatingMove();
 });
 main.addEventListener('submit',e=>{
@@ -663,7 +680,9 @@ function renderMouse(){
  // "N개 상태: 내역" line under a stat card, zero counts left out
  const brk=(list,keys)=>keys.map(s=>[s,list.filter(r=>(mget(r,'status')||'Live')===s).length]).filter(([,n])=>n).map(([s,n])=>`${s} ${n}`).join(' · ');
  const aliveKeys=[...new Set([...MSTATUS.filter(s=>!ENDED.includes(s)),...alive.map(r=>mget(r,'status')||'Live')])];
- let h=mouseTabs()+`<div class="crumb">KPC mouse${canEdit()?' · <span style="color:var(--acc)">행을 누르면 수정, Status는 표에서 바로 바꿀 수 있어요</span>':''}</div><div class="stats">
+ const statusCount=statusBatch.pending.size, statusDisabled=mouseBatchBusy()?' disabled':'';
+ const statusBar=statusCount?`<div class="mating-confirm"><span role="status"><b>${statusCount}마리 상태 변경 · 저장 대기</b></span><button type="button" class="btn sm" id="m_status_cancel"${statusDisabled}>전체 취소</button><button type="button" class="btn sm pri" id="m_status_save"${statusDisabled}>${statusBatch.busy?'저장 중…':'한꺼번에 저장'}</button></div>`:'';
+ let h=mouseTabs()+statusBar+`<div class="crumb">KPC mouse${matingEditable()?' · <span style="color:var(--acc)">표에서 여러 개체의 상태를 바꾼 뒤 한꺼번에 저장할 수 있어요.</span>':''}</div><div class="stats">
   <div class="stat"><b>${all.length}</b><span>전체 개체</span></div>
   <div class="stat"><b>${alive.length}</b><span>살아 있는 개체</span><small class="brk">${brk(alive,aliveKeys)||'—'}</small></div>
   <div class="stat"><b>${alive.filter(r=>mget(r,'sex').toUpperCase()==='M').length} / ${alive.filter(r=>mget(r,'sex').toUpperCase()==='F').length}</b><span>♂ / ♀ (살아 있는)</span></div>
@@ -679,8 +698,11 @@ function renderMouse(){
   <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="m_toe">🐭 발가락 표시</button>${canEdit()?'<button class="btn sm pri" id="m_add">＋ 마우스 추가</button>':''}</span></div>`;
  if(mst.preset==='직접 선택')h+=`<div class="mpick">${Object.keys(MCOL).map(c=>`<label class="chk"><input type="checkbox" data-mc="${c}"${cols.includes(c)?' checked':''}> ${MCOL[c]}</label>`).join('')}</div>`;
  const cell=(r,c)=>{const v=mval(r,c);
-  // Status: pick from the table directly (saves right away)
-  if(c==='status'&&canEdit())return`<td><select class="stsel" data-sid="${esc(mget(r,'id'))}">${MSTATUS.map(s=>`<option value="${s}"${s===v?' selected':''} title="${MSTATUS_KO[s]||''}">${s}</option>`).join('')}${v&&!MSTATUS.includes(v)?`<option selected>${esc(v)}</option>`:''}${v?'':'<option value="" selected>—</option>'}</select></td>`;  // table: English only (Korean in the detail panel / filter)
+  if(c==='status'&&matingEditable()){
+   const id=mget(r,'id'),change=statusBatch.pending.get(id),shown=change?.to??v;
+   const options=[...new Set([...MSTATUS,v,shown])];
+   return `<td><select class="stsel${change?' staged':''}" data-sid="${esc(id)}" aria-label="${esc(id)} 상태${change?' · 저장 대기':''}"${statusDisabled}>${options.map(s=>`<option value="${esc(s)}"${s===shown?' selected':''} title="${MSTATUS_KO[s]||''}">${esc(s||'—')}</option>`).join('')}</select></td>`;
+  }
   if(!v)return'<td class="na">·</td>';
   if(c==='kras'&&v==='+/-')return`<td><span class="kh">${esc(v)}</span></td>`;  // only Kras het is highlighted
   if(c==='sex'){const s=v.toUpperCase();return s==='M'||s==='F'?`<td class="sx ${s.toLowerCase()}">${s==='M'?'♂ M':'♀ F'}</td>`:`<td>${esc(v)}</td>`}
@@ -695,8 +717,10 @@ function renderMouse(){
  if(!rows.length)t+=`<tr><td colspan="${showCols.length}" class="mute" style="padding:30px;text-align:center">해당하는 개체가 없습니다</td></tr>`;
  main.innerHTML=h+t+'</tbody></table></div>';renderNav();markSel()}
 main.addEventListener('click',e=>{if(view.t!=='mouse')return;const t=e.target;
- const tab=t.closest('[data-cage-tab]');if(tab){if(mating.busy||!leaveOK())return;closeDet();mating.active=tab.dataset.cageTab==='mating';mating.selected='';mating.pending=null;renderMouse();main.querySelector(`[data-cage-tab="${tab.dataset.cageTab}"]`).focus();return}
+ const tab=t.closest('[data-cage-tab]');if(tab){if(mouseBatchBusy()||!leaveOK())return;closeDet();mating.active=tab.dataset.cageTab==='mating';mating.selected='';renderMouse();main.querySelector(`[data-cage-tab="${tab.dataset.cageTab}"]`).focus();return}
  if(mating.active)return;
+ if(t.id==='m_status_save')return saveStatusBatch();
+ if(t.id==='m_status_cancel'){statusBatch.pending.clear();updateMouseUnloadWarning();renderMouse();return}
  const p=t.closest('[data-mp]');if(p){mst.preset=p.dataset.mp;LS.set('mpreset',mst.preset);if(mst.preset==='직접 선택'&&!mst.custom)mst.custom=MPRESET['기본'].slice();renderMouse();return}
  if(t.id==='m_toe')return $('toed').showModal();
  if(t.id==='m_add')return openMouse(null,true);
@@ -706,16 +730,50 @@ main.addEventListener('click',e=>{if(view.t!=='mouse')return;const t=e.target;
 main.addEventListener('change',e=>{if(view.t!=='mouse')return;const t=e.target;
  if(t.id==='m_status'){mst.status=t.value;renderMouse()}else if(t.id==='m_sex'){mst.sex=t.value;renderMouse()}
  else if(t.id==='m_ended'){mst.showEnded=t.checked;LS.set('mshowended',t.checked?'1':'');renderMouse()}
- else if(t.classList.contains('stsel'))saveStatus(t);
+ else if(t.classList.contains('stsel'))stageStatus(t);
  else if(t.id==='m_group'){mst.group=t.checked;LS.set('mgroup',t.checked?'1':'0');renderMouse()}
  else if(t.dataset.mc){const c=t.dataset.mc;mst.custom=Object.keys(MCOL).filter(k=>k===c?t.checked:mst.custom.includes(k));LS.set('mcustom',JSON.stringify(mst.custom));renderMouse()}});
-// inline status change from the table: only that row's status is written into the latest CSV
-async function saveStatus(sel){const id=sel.dataset.sid,r=MOUSE.rows.find(x=>mget(x,'id')===id);if(!r)return;
- const old=mget(r,'status'),nv=sel.value;if(nv===old)return;sel.disabled=true;
- const ok=await saveFile(MOUSE,(rows,hdr)=>{const i=rows.findIndex((x,k)=>k>0&&x[1]===id),si=hdr.indexOf('status');
-  if(i<0)throw new Error(id+'을(를) 찾을 수 없습니다');rows[i][si]=nv;return rows},`마우스 ${id} 수정`);
- if(!ok){sel.value=old;sel.disabled=false;return}
- if(curM===id&&det.classList.contains('open')&&!detEdit)openMouse(id,false)}
+function stageStatus(sel){
+ if(!matingEditable()||mouseBatchBusy())return;
+ const id=sel.dataset.sid,r=MOUSE.rows.find(x=>mget(x,'id')===id);
+ if(!r)return;
+ const from=statusBatch.pending.get(id)?.from??mget(r,'status');
+ if(sel.value===from)statusBatch.pending.delete(id);
+ else statusBatch.pending.set(id,{id,from,to:sel.value});
+ updateMouseUnloadWarning();renderMouse();
+ main.querySelector(`.stsel[data-sid="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
+}
+function updateMouseStatuses(rows,header,changes){
+ const id=header.indexOf('id'),status=header.indexOf('status');
+ const byId=new Map(rows.slice(1).map(row=>[row[id],row]));
+ for(const change of changes){
+  const row=byId.get(change.id);
+  if(!row||(row[status]??'')!==change.from)
+   throw new Error(change.id+'의 상태가 바뀌었습니다. 최신 내용을 확인한 뒤 다시 시도하세요.');
+ }
+ for(const {id,to} of changes)byId.get(id)[status]=to;
+ return rows;
+}
+async function saveStatusBatch(){
+ if(!matingEditable()||mouseBatchBusy()||!statusBatch.pending.size)return;
+ const changes=[...statusBatch.pending.values()];
+ const mutate=(rows,header)=>updateMouseStatuses(rows,header,changes);
+ statusBatch.busy=true;renderMouse();
+ let ok=false;
+ try{
+  if(localPreview){savePreviewMice(mutate);ok=true}
+  else ok=await saveFile(MOUSE,mutate,`마우스 ${changes.length}마리 상태 변경`);
+ }catch(e){toast('저장 실패: '+e.message,false)}
+ finally{
+  statusBatch.busy=false;
+  if(ok){statusBatch.pending.clear();updateMouseUnloadWarning()}
+  if(view.t==='mouse'&&!mating.active){
+   renderMouse();
+   if(ok&&changes.some(change=>change.id===curM)&&det.classList.contains('open')&&!detEdit)openMouse(curM,false);
+   if(!ok)$('m_status_save')?.focus();
+  }
+ }
+}
 // next free number: sequential, skipping any number that contains the digit 9
 const MSTATUS=['Live','Breeding','Retired','Planning','Experiment','Used','Dead','Sacrificed'];
 // stored value stays English; dropdowns show a Korean description next to it
@@ -812,7 +870,7 @@ $('setb').onclick=()=>{$('s_name').value=cfg.name;$('s_tok').value=cfg.tok;$('s_
 $('s_cancel').onclick=()=>setd.close();
 $('s_ok').onclick=()=>{LS.set('name',$('s_name').value.trim());LS.set('tok',$('s_tok').value.trim());LS.set('repo',$('s_repo').value.trim());setd.close();init()};
 $('s_clr').onclick=()=>{['name','tok','repo'].forEach(k=>LS.set(k,''));setd.close();init()};
-$('histb').onclick=()=>{ana.all.hist=true;LS.set('histfold.'+(view.t==='mouse'?'mouse':'stock'),'');if(view.t==='mouse'){mating.active=false;mating.selected='';mating.pending=null;renderMouse()}else renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
+$('histb').onclick=()=>{ana.all.hist=true;LS.set('histfold.'+(view.t==='mouse'?'mouse':'stock'),'');if(view.t==='mouse'){mating.active=false;mating.selected='';renderMouse()}else renderAna();const c=$('histcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})};
 $('q').oninput=e=>{term=e.target.value.trim().toLowerCase();hl=null;render()};
 
 async function init(){$('mode').textContent=localPreview?'로컬 미리보기':canEdit()?'편집 가능':'보기 전용';$('mode').className='mode'+(canEdit()||localPreview?' on':'');
