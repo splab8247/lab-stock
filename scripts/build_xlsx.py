@@ -59,7 +59,7 @@ def add_sheet(wb, name, fname):
             target = deceased if row[status].strip().lower() in DECEASED_STATUSES else current
             target.append(row)
         write_mouse_sheet(wb, name, header, current)
-        write_mouse_sheet(wb, "폐사·희생", header, deceased)
+        write_mouse_sheet(wb, "폐사·개체 정리", header, deceased)
     else:
         write_sheet(wb, name, header, data)
 
