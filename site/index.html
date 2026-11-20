@@ -502,12 +502,13 @@ main.addEventListener('change',e=>{if(e.target.id==='a_sheet'){ana.sheet=e.targe
 // ---------- mouse colony (data/mice.csv: one master table, shown through column presets) ----------
 const MOUSE={key:'mouse',file:'mice.csv',label:'KPC mouse',cols:[],rows:[]};
 const MATING_REGISTRY='mating_cage_registry';
+const NORMAL_REGISTRY='normal_cage_registry';
 MOUSE.build=(sh,text)=>{
- const [header,...rows]=parseCSV(text),registry=header.indexOf(MATING_REGISTRY);
+ const [header,...rows]=parseCSV(text),registry=header.indexOf(MATING_REGISTRY),normalRegistry=header.indexOf(NORMAL_REGISTRY);
  sh.cols=header;sh.rows=[];sh.registryRows=[];
  for(const row of rows){
   while(row.length<header.length)row.push('');
-  (row[registry]?sh.registryRows:sh.rows).push(row);
+  (row[registry]||row[normalRegistry]?sh.registryRows:sh.rows).push(row);
  }
 };
 const MCOL={cage:'Cage',id:'번호',sex:'성별',dob:'D.O.B',age:'주령',mother:'Parent(모)',father:'Parent(부)',generation:'세대',weaning:'Weaning',kras:'Kras',trp53:'Trp53',pdx1_cre:'Pdx1-CreER',genotyping_date:'Genotyping',status:'Status',mark:'표식',note:'비고',toe:'발가락'};
@@ -551,7 +552,7 @@ function mouseRows(){return MOUSE.rows.filter(r=>(mst.showEnded||isAlive(r))&&(!
  .sort((a,b)=>compareMouseLabels(plannedNormalCage(a),plannedNormalCage(b))||compareMouseLabels(mget(a,'id'),mget(b,'id')))}
 const mating={active:localPreview,selected:'',dragging:'',pending:new Map(),busy:false,drafts:new Set()};
 const statusBatch={pending:new Map(),busy:false};
-const normalCages={table:false,pending:new Map(),drafts:new Set(),selected:'',busy:false};
+const normalCages={table:false,pending:new Map(),drafts:new Set(),renames:new Map(),selected:'',busy:false};
 const plannedMatingCage=r=>mating.pending.get(mget(r,'id'))?.to??mget(r,'mating_cage');
 function warnUnsavedMouseChanges(event){event.preventDefault();event.returnValue=''}
 function updateMouseUnloadWarning(){
@@ -615,12 +616,12 @@ function proposeMatingMove(id,to){
  mating.selected='';updateMouseUnloadWarning();
  renderMating();focusMatingMouse(id);
 }
-function registerMatingCages(rows,header,names){
+function registerMatingCages(rows,header,names,key=MATING_REGISTRY){
  const cages=[...new Set(names.filter(Boolean))];
  if(!cages.length)return;
- let registry=header.indexOf(MATING_REGISTRY);
+ let registry=header.indexOf(key);
  if(registry<0){
-  registry=header.length;header.push(MATING_REGISTRY);
+  registry=header.length;header.push(key);
   for(const row of rows.slice(1))while(row.length<=registry)row.push('');
  }
  const registered=new Set(rows.slice(1).map(row=>row[registry]));
@@ -747,13 +748,14 @@ function normalChangesBar(){
  const disabled=mouseBatchBusy()?' disabled':'';
  return `<div class="mating-confirm"><span role="status">${normalCages.pending.size}마리 케이지 변경 · 저장 대기</span><button class="btn sm" data-normal-action="cancel"${disabled}>전체 취소</button><button class="btn sm pri" data-normal-action="save"${disabled}>한꺼번에 저장</button></div>`;
 }
-function normalCageNames(){return [...new Set([...MOUSE.rows.map(plannedNormalCage),...normalCages.drafts])].sort(compareMouseLabels)}
+function normalCageNames(){return [...new Set([...MOUSE.rows.map(plannedNormalCage),...MOUSE.registryRows.map(r=>mget(r,NORMAL_REGISTRY)).filter(Boolean).map(name=>normalCages.renames.get(name)||name),...normalCages.drafts])].sort(compareMouseLabels)}
 function renderNormalCages(){
  const edit=matingEditable(),disabled=mouseBatchBusy()?' disabled':'';
  const cards=normalCageNames().map(name=>{
   const rows=mouseRows().filter(r=>plannedNormalCage(r)===name);
   if(term&&!rows.length)return '';
-  return `<article class="mating-cage" data-normal-cage="${esc(name)}"><div class="mating-cage-title"><strong>${esc(name||'케이지 미지정')}</strong><span>${rows.length}마리</span>${edit&&name?`<button class="btn sm" data-normal-action="rename" data-name="${esc(name)}"${disabled}>이름 변경</button>`:''}</div>
+  const empty=!MOUSE.rows.some(r=>plannedNormalCage(r)===name)&&!normalCages.pending.size;
+  return `<article class="mating-cage" data-normal-cage="${esc(name)}"><div class="mating-cage-title"><strong>${esc(name||'케이지 미지정')}</strong><span>${rows.length}마리</span>${edit&&name?`<button class="btn sm" data-normal-action="rename" data-name="${esc(name)}"${disabled}>이름 변경</button>${empty?`<button class="btn sm del" data-normal-action="delete" data-name="${esc(name)}" aria-label="${esc(name)} 케이지 삭제"${disabled}>×</button>`:''}`:''}</div>
   <div class="mating-list mating-mouse-grid">${rows.map(r=>{
    const id=mget(r,'id'),sex=mget(r,'sex'),kras=mget(r,'kras');
    return `<button type="button" class="btn mating-mouse" data-normal-id="${esc(id)}" draggable="${edit&&!mouseBatchBusy()&&isAlive(r)}" aria-pressed="${normalCages.selected===id}"${!edit||mouseBatchBusy()||!isAlive(r)?' disabled':''}><span class="mating-mouse-top"><b class="mating-mouse-id">${esc(id)}</b><span class="mating-mouse-sex ${sex==='M'?'m':'f'}">${sex==='M'?'♂ 수컷':sex==='F'?'♀ 암컷':'미지정'}</span></span><span class="mating-mouse-info"><span>${esc(stLabel(mget(r,'status')))}</span><span class="mating-kras${kras==='+/-'?' kh':''}">Kras ${esc(kras||'—')}</span></span>${normalCages.pending.has(id)?'<small>저장 대기</small>':''}</button>`;
@@ -778,7 +780,24 @@ function applyNormalMoves(rows,header,moves){
   return {row,to:move.to};
  });
  for(const {row,to} of changes)row[cage]=to;
+ registerMatingCages(rows,header,moves.flatMap(move=>[normalCages.renames.get(move.from)||move.from,move.to]),NORMAL_REGISTRY);
+ const registry=header.indexOf(NORMAL_REGISTRY);
+ for(const row of rows.slice(1))if(normalCages.renames.has(row[registry]))row[registry]=normalCages.renames.get(row[registry]);
  return rows;
+}
+async function deleteNormalCage(name){
+ if(!matingEditable()||mouseBatchBusy()||normalCages.pending.size)return;
+ if(normalCages.drafts.delete(name)){renderMouse();return}
+ if(!confirm(name+' 빈 일반 케이지를 삭제할까요?'))return;
+ const mutate=(rows,header)=>{
+  const cage=header.indexOf('cage'),registry=header.indexOf(NORMAL_REGISTRY);
+  if(rows.slice(1).some(row=>row[cage]===name))throw new Error('케이지에 개체가 있습니다. 이동을 먼저 저장하세요.');
+  return rows.filter((row,i)=>i===0||row[registry]!==name);
+ };
+ normalCages.busy=true;renderMouse();
+ try{if(localPreview)savePreviewMice(mutate);else await saveFile(MOUSE,mutate,`일반 케이지 ${name} 삭제`)}
+ catch(e){toast('삭제 실패: '+e.message,false)}
+ finally{normalCages.busy=false;renderMouse()}
 }
 async function saveNormalCages(){
  if(!normalCages.pending.size||mouseBatchBusy()||!matingEditable())return;
@@ -792,7 +811,7 @@ async function saveNormalCages(){
  }catch(e){toast('저장 실패: '+e.message,false)}
  finally{
   normalCages.busy=false;
-  if(ok){normalCages.pending.clear();normalCages.drafts.clear();updateMouseUnloadWarning()}
+  if(ok){normalCages.pending.clear();normalCages.drafts.clear();normalCages.renames.clear();updateMouseUnloadWarning()}
   if(view.t==='mouse')renderMouse();
  }
 }
@@ -807,7 +826,8 @@ main.addEventListener('click',e=>{
  if(!action)return;
  const type=action.dataset.normalAction;
  if(type==='save')return saveNormalCages();
- if(type==='cancel'){normalCages.pending.clear();normalCages.selected='';updateMouseUnloadWarning();renderMouse();return}
+ if(type==='delete')return deleteNormalCage(action.dataset.name);
+ if(type==='cancel'){normalCages.pending.clear();normalCages.renames.clear();normalCages.selected='';updateMouseUnloadWarning();renderMouse();return}
  if(type==='add'||type==='rename'){
   const old=type==='rename'?action.dataset.name:'';
   const answer=prompt(type==='rename'?'새 케이지 번호 / 이름':'추가할 케이지 번호 / 이름',old);
@@ -816,6 +836,8 @@ main.addEventListener('click',e=>{
   if(!name||name===old)return;
   if(normalCageNames().some(n=>compareMouseLabels(n,name)===0))return toast('이미 있는 케이지 이름입니다.',false);
   if(type==='rename'){
+   for(const [from,to] of normalCages.renames)if(to===old)normalCages.renames.set(from,name);
+   normalCages.renames.set(old,name);
    for(const row of MOUSE.rows.filter(r=>plannedNormalCage(r)===old))stageNormalMove(mget(row,'id'),name);
    normalCages.drafts.delete(old);
   }
@@ -985,7 +1007,7 @@ function openMouse(id,edit,copyFrom){const src=copyFrom?MOUSE.rows.find(x=>mget(
  const lbl=c=>MGENE[c]?`<i title="${MGENE[c][1].replace(/<\/?sup>/g,'')}">${MGENE[c][0]}</i>`:esc(MCOL[c]||c);
  const g=genFrom(vals[C('mother')],vals[C('father')]);
  let dl=MOUSE.cols.map((c,i)=>{const v=vals[i];
-  if(c===MATING_REGISTRY)return '';
+  if(c===MATING_REGISTRY||c===NORMAL_REGISTRY)return '';
   if(c==='mating_cage')return `<dt>메이팅 케이지</dt><dd>${v?esc(v):'미배정'}</dd>`;
   if(editable){
    if(c==='status'&&r&&mget(r,'mating_cage'))return `<dt>${lbl(c)}</dt><dd>${esc(stLabel(v)||'—')}<div class="hint">상태를 바꾸려면 먼저 메이팅 배정을 해제하세요.</div></dd>`;
